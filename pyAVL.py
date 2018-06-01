@@ -9,8 +9,9 @@ class AVL(object):
     def get(self, dkey):
         return getNode(self.root, dkey)
 
-    def put(self, dkey, dval):
-        putNode(self.root, dkey, dval)
+
+    def put(self, dkey, dval = None):
+        putNode(self.root, dkey, str(dkey) if dval is None else dval)
         unbalanced = balanceCheck(self.root)
         if unbalanced is not None:
             print(unbalanced.key)
