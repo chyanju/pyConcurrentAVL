@@ -11,6 +11,10 @@ class AVL(object):
 
     def put(self, dkey, dval):
         putNode(self.root, dkey, dval)
+        unbalanced = balanceCheck(self.root)
+        if unbalanced is not None:
+            print(unbalanced.key)
+            self.root = getROOT(rotateCheck(unbalanced))
 
     def min(self):
         return getMinNode(self.root)
@@ -218,22 +222,33 @@ def balanceCheck(droot):
     """
 
     def DFSNode(ddnode):
-        if ddnode.left.height * ddnode.right.height == 0:
-            if abs(ddnode.left.height - ddnode.right.height) >= 2:
-                # imbalanced node
-                return ddnode
 
-        lR = None
-        rR = None
-        if ddnode.left.left != None and ddnode.left.right != None:
-            lR = DFSNode(ddnode.left)
-        if ddnode.right.left != None and ddnode.right.right != None:
-            rR = DFSNode(ddnode.right)
-        if lR != None:
-            return lR
-        if rR != None:
-            return rR
-        return None
+        if ddnode.left != None and ddnode.right != None:
+            if ddnode.left.height * ddnode.right.height == 0:
+                if abs(ddnode.left.height - ddnode.right.height) > 1:
+                    # imbalanced node
+                    return ddnode
+
+            lR = None
+            rR = None
+            if ddnode.left.left != None and ddnode.left.right != None:
+                lR = DFSNode(ddnode.left)
+            if ddnode.right.left != None and ddnode.right.right != None:
+                rR = DFSNode(ddnode.right)
+            if lR != None:
+                return lR
+            if rR != None:
+                return rR
+            return None
+        else:
+            if ddnode.left == None:
+                if ddnode.right == None:
+                    return None
+                if ddnode.right.height > 1:
+                    return ddnode
+            else:
+                if ddnode.left.height > 1:
+                    return ddnode
 
     return DFSNode(droot)
 
@@ -351,27 +366,29 @@ def rotateCheck(dnode):
         # R*
         if dnode.right.left.height == 0:
             print("#RR")
-            return rotateRR
+            return rotateRR(dnode)
         else:
             print("#RL")
-            return rotateRL
+            return rotateRL(dnode)
     else:
         # L*
         if dnode.left.left.height == 0:
             print("#LR")
-            return rotateLR
+            return rotateLR(dnode)
         else:
             print("#LL")
-            return rotateLL
+            return rotateLL(dnode)
 
 def getROOT(dnode):
     """
     trace back to the actual top ROOT node
     """
-    ddnode = dnode
-    while ddnode.parent != None:
-        ddnode = ddnode.parent
-    return ddnode
+    print(dnode)
+    if dnode != None:
+        ddnode = dnode
+        while ddnode.parent != None:
+            ddnode = ddnode.parent
+        return ddnode
 
 def buildGraph(G, node, color=None):
     G.node(str(node.key), str(node.key))
