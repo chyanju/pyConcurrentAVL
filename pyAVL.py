@@ -29,7 +29,6 @@ class AVL(object):
     def print(self):
         prettyPrintTree(self.root)
 
-
 class Node(object):
     def __init__(self, dkey, dval):
         self.key = dkey  # comparable, assume int
@@ -221,6 +220,7 @@ def balanceCheck(droot):
     return imbalanced node for rotation,
     otherwise return None
     """
+    print(droot.key)
 
     def DFSNode(ddnode):
 
@@ -245,10 +245,10 @@ def balanceCheck(droot):
             if ddnode.left == None:
                 if ddnode.right == None:
                     return None
-                if ddnode.right.height > 1:
+                if ddnode.right.height > 0:
                     return ddnode
             else:
-                if ddnode.left.height > 1:
+                if ddnode.left.height > 0:
                     return ddnode
 
     return DFSNode(droot)
