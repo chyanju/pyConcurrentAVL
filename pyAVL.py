@@ -7,16 +7,16 @@ class AVL(object):
         self.root = Node(None, None)
 
     def get(self, dkey):
-        getNode(self.root, dkey)
+        return getNode(self.root, dkey)
 
     def put(self, dkey, dval):
         putNode(self.root, dkey, dval)
 
     def min(self):
-        getMinNode(self.root)
+        return getMinNode(self.root)
 
     def max(self):
-        getMaxNode(self.root)
+        return getMaxNode(self.root)
 
     def remove(self, dkey):
         removeNode(self.root, dkey)
