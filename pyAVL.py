@@ -2,6 +2,29 @@ from graphviz import Digraph
 from IPython.display import Image, display
 
 
+class AVL(object):
+    def __init__(self):
+        self.root = Node(None, None)
+
+    def get(self, dkey):
+        getNode(self.root, dkey)
+
+    def put(self, dkey, dval):
+        putNode(self.root, dkey, dval)
+
+    def min(self):
+        getMinNode(self.root)
+
+    def max(self):
+        getMaxNode(self.root)
+
+    def remove(self, dkey):
+        removeNode(self.root, dkey)
+
+    def print(self):
+        prettyPrintTree(self.root)
+
+
 class Node(object):
     def __init__(self, dkey, dval):
         self.key = dkey  # comparable, assume int
@@ -13,7 +36,6 @@ class Node(object):
         self.parent = None  # None means this node is the root node
         self.left = None
         self.right = None
-
 
 def strTree(droot):
     """
@@ -39,7 +61,6 @@ def strTree(droot):
     stree = DFSNode(dnode, stree)
     return stree
 
-
 def getNode(droot, dkey):
     """
     if dkey presents, return the node,
@@ -61,19 +82,22 @@ def getNode(droot, dkey):
                 else:
                     dnode = dnode.right
 
-
 def putNode(droot, dkey, dval):
     """
     if dkey presents, perform update,
     otherwise perform insertion
     """
+
     tnode = getNode(droot, dkey)
     if tnode.key == dkey:
         # update
         tnode.val = dval
     else:
         # insert
-        if dkey < tnode.key:
+        if tnode.key is None:
+            tnode.key = dkey
+            tnode.val = dval
+        elif dkey < tnode.key:
             tnode.left = Node(dkey, dval)
             tnode.left.parent = tnode
         else:
@@ -89,7 +113,6 @@ def putNode(droot, dkey, dval):
                     hnode.right.height + 1 if not hnode.right == None else 0
                 )
                 hnode = hnode.parent
-
 
 def getMinNode(droot):
     """
