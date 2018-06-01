@@ -14,7 +14,7 @@ class AVL(object):
         putNode(self.root, dkey, str(dkey) if dval is None else dval)
         unbalanced = balanceCheck(self.root)
         if unbalanced is not None:
-            print(unbalanced.key)
+            print(str(unbalanced.key) + " is unbalanced")
             self.root = getROOT(rotateCheck(unbalanced))
 
     def min(self):
@@ -220,7 +220,6 @@ def balanceCheck(droot):
     return imbalanced node for rotation,
     otherwise return None
     """
-    print(droot.key)
 
     def DFSNode(ddnode):
 
@@ -363,9 +362,9 @@ def rotateCheck(dnode):
     """
     check and determine the type of rotation
     """
-    if dnode.left.height == 0:
+    if dnode.left == None or dnode.left.height == 0:
         # R*
-        if dnode.right.left.height == 0:
+        if dnode.right.left == None or dnode.right.left.height == 0:
             print("#RR")
             return rotateRR(dnode)
         else:
@@ -373,7 +372,7 @@ def rotateCheck(dnode):
             return rotateRL(dnode)
     else:
         # L*
-        if dnode.left.left.height == 0:
+        if dnode.left.left == None or dnode.left.left.height == 0:
             print("#LR")
             return rotateLR(dnode)
         else:
