@@ -28,6 +28,9 @@ class AVL(object):
 
     def print(self):
         prettyPrintTree(self.root)
+        
+    def __str__(self):
+        return strTree(self.root)
 
 
 class Node(object):
