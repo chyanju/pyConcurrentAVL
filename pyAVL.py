@@ -126,7 +126,6 @@ def getMinNode(droot):
             m = dnode
     return m
 
-
 def getMaxNode(droot):
     """
     return the node with maximum key, including droot
@@ -138,7 +137,6 @@ def getMaxNode(droot):
         if dnode.key > m.key:
             m = dnode
     return m
-
 
 def removeNode(droot, dkey):
     """
@@ -189,7 +187,6 @@ def removeNode(droot, dkey):
         print("WARNING: No matching node found, operation is invalidated.")
         return None
 
-
 def fixHeight(dnode):
     """
     fix the height properties from dnode back to ROOT
@@ -212,7 +209,6 @@ def fixHeight(dnode):
                 ddnode.left.height if ddnode.left != None else 0,
                 ddnode.right.height if ddnode.right != None else 0
             ) + 1
-
 
 def balanceCheck(droot):
     """
@@ -240,7 +236,6 @@ def balanceCheck(droot):
         return None
 
     return DFSNode(droot)
-
 
 def rotateLL(dnode):
     """
@@ -279,7 +274,6 @@ def rotateLL(dnode):
 
     return k1
 
-
 def rotateLR(dnode):
     """
     complex type
@@ -296,7 +290,6 @@ def rotateLR(dnode):
     # no need to fix height
     return k2
 
-
 def rotateRL(dnode):
     """
     complex type
@@ -312,7 +305,6 @@ def rotateRL(dnode):
     k2 = rotateRR(k1)
     # no need to fix height
     return k2
-
 
 def rotateRR(dnode):
     """
@@ -351,7 +343,6 @@ def rotateRR(dnode):
 
     return k2
 
-
 def rotateCheck(dnode):
     """
     check and determine the type of rotation
@@ -373,7 +364,6 @@ def rotateCheck(dnode):
             print("#LL")
             return rotateLL
 
-
 def getROOT(dnode):
     """
     trace back to the actual top ROOT node
@@ -383,17 +373,15 @@ def getROOT(dnode):
         ddnode = ddnode.parent
     return ddnode
 
-
 def buildGraph(G, node, color=None):
     G.node(str(node.key), str(node.key))
-    if node.parent is not None:
+    if color is not None:
         G.edge(str(node.parent.key), str(node.key), color=color)
     if node.left is not None:
         G = buildGraph(G, node.left, color='blue')
     if node.right is not None:
         G = buildGraph(G, node.right, color='red')
     return G
-
 
 def prettyPrintTree(root):
     G = Digraph(format='png')
