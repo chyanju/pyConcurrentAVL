@@ -14,7 +14,7 @@ class AVL(object):
         putNode(self.root, dkey, str(dkey) if dval is None else dval)
         unbalanced = balanceCheck(self.root)
         if unbalanced is not None:
-            self.root = getROOT(autoRotate(unbalanced))
+            self.root = getRoot(autoRotate(unbalanced))
 
     def min(self):
         return getMinNode(self.root)
@@ -26,7 +26,7 @@ class AVL(object):
         removeNode(self.root, dkey)
         unbalanced = balanceCheck(self.root)
         if unbalanced is not None:
-            self.root = getROOT(autoRotate(unbalanced))
+            self.root = getRoot(autoRotate(unbalanced))
 
     def print(self):
         prettyPrintTree(self.root)
@@ -382,7 +382,7 @@ def autoRotate(dnode):
             #print("LL")
             return rotateLL(dnode)
 
-def getROOT(dnode):
+def getRoot(dnode):
     """
     trace back to the actual top ROOT node
     """
