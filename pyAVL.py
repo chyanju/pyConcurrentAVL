@@ -14,7 +14,6 @@ class AVL(object):
         putNode(self.root, dkey, str(dkey) if dval is None else dval)
         unbalanced = balanceCheck(self.root)
         if unbalanced is not None:
-            print(str(unbalanced.key) + " is unbalanced")
             self.root = getROOT(autoRotate(unbalanced))
 
     def min(self):
@@ -119,7 +118,6 @@ def putNode(droot, dkey, dval):
             tnode.right = Node(dkey, dval)
             tnode.right.parent = tnode
             fixHeight(tnode.right)
-            
 
 def getMinNode(droot):
     """
@@ -363,10 +361,10 @@ def autoRotate(dnode):
         nnl = ddnode.left.height if ddnode.left!=None else -1
         nnr = ddnode.right.height if ddnode.right!=None else -1
         if nnl<nnr:
-            print("RR")
+            #print("RR")
             return rotateRR(dnode)
         else:
-            print("RL")
+            #print("RL")
             return rotateRL(dnode)
     else:
         # L*, nl>=0 must hold
@@ -374,17 +372,16 @@ def autoRotate(dnode):
         nnl = ddnode.left.height if ddnode.left!=None else -1
         nnr = ddnode.right.height if ddnode.right!=None else -1
         if nnl<nnr:
-            print("LR")
+            #print("LR")
             return rotateLR(dnode)
         else:
-            print("LL")
+            #print("LL")
             return rotateLL(dnode)
 
 def getROOT(dnode):
     """
     trace back to the actual top ROOT node
     """
-    print(dnode)
     if dnode != None:
         ddnode = dnode
         while ddnode.parent != None:
