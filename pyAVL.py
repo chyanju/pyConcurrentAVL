@@ -4,11 +4,10 @@ from IPython.display import Image, display
 
 class AVL(object):
     def __init__(self):
-        self.root = Node(None, None)
+        self.root = Node()
 
     def get(self, dkey):
         return getNode(self.root, dkey)
-
 
     def put(self, dkey, dval = None):
         putNode(self.root, dkey, str(dkey) if dval is None else dval)
@@ -35,7 +34,7 @@ class AVL(object):
         return strTree(self.root)
 
 class Node(object):
-    def __init__(self, dkey, dval):
+    def __init__(self, dkey = None, dval = None):
         self.key = dkey  # comparable, assume int
         self.val = dval  # any type, None means this node is conceptually not present
 
@@ -47,6 +46,10 @@ class Node(object):
         self.parent = None  # None means this node is the root node
         self.left = None
         self.right = None
+
+    def copy(self, node):
+        self.key = node.key
+        self.val = node.val
 
 def strTree(droot):
     """
@@ -150,15 +153,26 @@ def removeNode(droot, dkey):
     """
     if dkey exists, remove the corresponding node and return its parent,
     otherwise return None (means failure)
-    EXCEPTION: if the node to remove is ROOT, invalidate this operation and return None
     """
     tnode = getNode(droot, dkey)
     if tnode.key == dkey:
         # found a node: just remove it
         if tnode.parent == None:
             # it's ROOT
-            print("WARNING: Trying to remove ROOT, operation is invalidated.")
-            return None
+            if tnode.left == None or tnode.right == None:
+                temp = tnode.left if tnode.left != None else tnode.right
+                if temp == None:
+                    # 0 Children
+                    tnode.copy(Node())
+                else:
+                    # 1 Child
+                    tnode.copy(temp)
+                    removeNode(temp, temp.key)
+            else:
+                # 2 children
+                temp = getMinNode(tnode.right)
+                tnode.copy(temp)
+                removeNode(tnode.right, tnode.key)
         else:
             if tnode.height == 0:
                 # no children, simply remove itself
@@ -393,7 +407,7 @@ def getRoot(dnode):
         return ddnode
 
 def buildGraph(G, node, color=None):
-    G.node(str(node.key), str(node.key))
+    G.node(str(node.key), str(node.key)+ " " + str(node.height))
     if color is not None:
         G.edge(str(node.parent.key), str(node.key), color=color)
     if node.left is not None:
@@ -403,6 +417,9 @@ def buildGraph(G, node, color=None):
     return G
 
 def prettyPrintTree(root):
-    G = Digraph(format='png')
-    G = buildGraph(G, root)
-    display(Image(G.render()))
+    if root.key == None:
+        print("Tree is empty!")
+    else:
+        G = Digraph(format='png')
+        G = buildGraph(G, root)
+        display(Image(G.render()))
