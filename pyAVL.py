@@ -407,7 +407,7 @@ def getRoot(dnode):
         return ddnode
 
 def buildGraph(G, node, color=None):
-    G.node(str(node.key), str(node.key)+ " " + str(node.height))
+    G.node(str(node.key), str(node.key))
     if color is not None:
         G.edge(str(node.parent.key), str(node.key), color=color)
     if node.left is not None:
