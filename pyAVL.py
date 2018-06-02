@@ -24,6 +24,9 @@ class AVL(object):
 
     def remove(self, dkey):
         removeNode(self.root, dkey)
+        unbalanced = balanceCheck(self.root)
+        if unbalanced is not None:
+            self.root = getROOT(autoRotate(unbalanced))
 
     def print(self):
         prettyPrintTree(self.root)
@@ -253,7 +256,7 @@ def rotateLL(dnode):
     y = k1.right
     if k2.parent != None:
         p = k2.parent
-        if p.left.key == k2.key:
+        if p.left != None and p.left.key == k2.key:
             p.left = k1
         else:
             p.right = k1
@@ -322,7 +325,7 @@ def rotateRR(dnode):
     y = k2.left
     if k1.parent != None:
         p = k1.parent
-        if p.left.key == k1.key:
+        if p.left != None and p.left.key == k1.key:
             p.left = k2
         else:
             p.right = k2
@@ -355,12 +358,13 @@ def autoRotate(dnode):
     """
     nl = dnode.left.height if dnode.left!=None else -1
     nr = dnode.right.height if dnode.right!=None else -1
-    if nl<nr:
+
+    if nl < nr:
         # R*, nr>=0 must hold
         ddnode = dnode.right
         nnl = ddnode.left.height if ddnode.left!=None else -1
         nnr = ddnode.right.height if ddnode.right!=None else -1
-        if nnl<nnr:
+        if nnl < nnr:
             #print("RR")
             return rotateRR(dnode)
         else:
@@ -371,7 +375,7 @@ def autoRotate(dnode):
         ddnode = dnode.left
         nnl = ddnode.left.height if ddnode.left!=None else -1
         nnr = ddnode.right.height if ddnode.right!=None else -1
-        if nnl<nnr:
+        if nnl < nnr:
             #print("LR")
             return rotateLR(dnode)
         else:
