@@ -1,6 +1,24 @@
 from graphviz import Digraph
 from IPython.display import Image, display
 
+# concurrent part
+import threading
+
+class CC_RETRY(object):
+    """
+    Concurrent Control RETRY type
+    usually happen in getNode when child node version changes
+    and retry can be performed from the same while loop again
+    """
+    pass
+
+class CC_SPECIAL_RETRY(object):
+    """
+    Concurrent Control SPECIAL_RETRY type: read operation failed
+    usually happen in getNode when parent node version changes
+    and retry should be performed from the caller function (with an updated dversion)
+    """
+    pass
 
 class ConAVL(object):
     def __init__(self):
@@ -33,6 +51,20 @@ class ConAVL(object):
     def __str__(self):
         return strTree(self.root)
 
+class Version(object):
+    def __init__(self):
+        self.unlinked = False
+        self.growing = False
+        self.gcnt = 0 # growing count incr
+        self.shrinking = False
+        self.scnt = 0 # shrinking count incr
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        return False
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    
 class Node(object):
     def __init__(self, dkey = None, dval = None):
         self.key = dkey  # comparable, assume int
@@ -46,10 +78,28 @@ class Node(object):
         self.parent = None  # None means this node is the root node
         self.left = None
         self.right = None
+        
+        # concurrent part
+        self.version = None # None for a fake node with key: None
+        if dkey is not None:
+            self.version = Version()
 
     def copy(self, node):
         self.key = node.key
         self.val = node.val
+        
+    def getChild(self, branch):
+        """
+        concurrent helper function, use branch=dkey-dnode.key
+        branch<0: return left child, branch>0: return right child
+        branch==0: return None
+        """
+        if branch<0:
+            return self.left
+        elif branch>0:
+            return self.right
+        else:
+            return None
 
 def strTree(droot):
     """
@@ -80,21 +130,65 @@ def getNode(droot, dkey):
     if dkey presents, return the node,
     otherwise, return the future dkey's parent node
     """
-    dnode = droot
-    while True:
-        if dnode.key == dkey or dnode.height == -1:
-            return dnode
-        else:
-            if dkey < dnode.key:
-                if dnode.left == None:
-                    return dnode
-                else:
-                    dnode = dnode.left
+    def attemptGet(dnode, dkey, dversion, dbranch):
+        while True:
+            cnode = dnode.getChild(dbranch)
+            if dnode.version!=dversion:
+                return CC_SPECIAL_RETRY
+            if cnode is None:
+                # no matching, should return the parent
+                return dnode
+            
+            nbranch = dkey-cnode.key
+            if nbranch==0:
+                # found matching, return cnode
+                return cnode
+            
+            cversion = cnode.version
+            if cnode.version.shrinking or cnode.version.unlinked:
+                # TODO: child.waitUntilShrinkCompleted(childOVL);
+                if dnode.version!=dversion:
+                    # should fall back to caller to gain a new dversion
+                    return CC_SPECIAL_RETRY
+                # else RETRY: will fall back to while loop and retry on child node
+                continue
+            elif cnode is not dnode.getChild(dbranch):
+                # cnode is no longer the correct cnode
+                if dnode.version!=dversion:
+                    return CC_SPECIAL_RETRY
+                # else RETRY
+                continue
             else:
-                if dnode.right == None:
-                    return dnode
-                else:
-                    dnode = dnode.right
+                if dnode.version!=dversion:
+                    return CC_SPECIAL_RETRY
+                # STILL VALID at this point !!!
+                vo = attemptGet(cnode, dkey, cversion, dkey-cnode.key)
+                if vo!=CC_SPECIAL_RETRY:
+                    return vo
+                # else RETRY
+                continue
+            
+    # getNode should test the root node first before entering the recursive attempt
+    if droot.key==dkey or droot.height==-1: # fake ROOT
+        return droot
+    # enter the recursive attempt
+    while True:
+        cnode = droot.getChild(dkey-droot.key)
+        if cnode is None:
+            # no matching, should return the parent
+            return droot
+        if cnode.version.shrinking or cnode.version.unlinked:
+            # TODO: child.waitUntilShrinkCompleted(childOVL);
+            # and will RETRY
+            continue
+        elif cnode is droot.getChild(dkey-droot.key):
+            # still the same cnode, not changing
+            vo = attemptGet(cnode, dkey, cnode.version, dkey-cnode.key)
+            if vo!=CC_SPECIAL_RETRY:
+                return vo
+        else:
+            # RETRY
+            continue
 
 def putNode(droot, dkey, dval):
     """
@@ -108,14 +202,17 @@ def putNode(droot, dkey, dval):
         tnode.key = dkey
         tnode.val = dval
         tnode.height = 0
+        tnode.version = Version()
     elif tnode.key == dkey:
         # update
         tnode.val = dval
+        # TODO: should we initialize a new Version?
     else:
         # insert
         if tnode.key is None:
             tnode.key = dkey
             tnode.val = dval
+            tnode.version = Version()
         elif dkey < tnode.key:
             tnode.left = Node(dkey, dval)
             tnode.left.parent = tnode
