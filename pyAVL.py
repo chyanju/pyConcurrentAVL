@@ -15,7 +15,7 @@ class AVL(object):
         unbalanced = balanceCheck(self.root)
         if unbalanced is not None:
             print(str(unbalanced.key) + " is unbalanced")
-            self.root = getROOT(rotateCheck(unbalanced))
+            self.root = getROOT(autoRotate(unbalanced))
 
     def min(self):
         return getMinNode(self.root)
@@ -38,6 +38,8 @@ class Node(object):
         self.val = dval  # any type, None means this node is conceptually not present
 
         self.height = 0
+        if dkey is None:
+            self.height = -1 # -1 if the node doesn't exist (a fake node with key: None)
 
         # Nodes
         self.parent = None  # None means this node is the root node
@@ -75,7 +77,7 @@ def getNode(droot, dkey):
     """
     dnode = droot
     while True:
-        if dnode.key == dkey or dnode.height == 0:
+        if dnode.key == dkey or dnode.height == -1:
             return dnode
         else:
             if dkey < dnode.key:
@@ -96,7 +98,12 @@ def putNode(droot, dkey, dval):
     """
 
     tnode = getNode(droot, dkey)
-    if tnode.key == dkey:
+    if tnode.height==-1:
+        # init root
+        tnode.key = dkey
+        tnode.val = dval
+        tnode.height = 0
+    elif tnode.key == dkey:
         # update
         tnode.val = dval
     else:
@@ -107,19 +114,12 @@ def putNode(droot, dkey, dval):
         elif dkey < tnode.key:
             tnode.left = Node(dkey, dval)
             tnode.left.parent = tnode
+            fixHeight(tnode.left)
         else:
             tnode.right = Node(dkey, dval)
             tnode.right.parent = tnode
-        # update height: iteratively
-        hnode = tnode
-        if hnode.height == 0:
-            while not hnode == None:
-                hnode.height = max(
-                    hnode.height,
-                    hnode.left.height + 1 if not hnode.left == None else 0,
-                    hnode.right.height + 1 if not hnode.right == None else 0
-                )
-                hnode = hnode.parent
+            fixHeight(tnode.right)
+            
 
 def getMinNode(droot):
     """
@@ -203,8 +203,8 @@ def fixHeight(dnode):
         dnode.height = 0
     else:
         dnode.height = max(
-            dnode.left.height if dnode.left != None else 0,
-            dnode.right.height if dnode.right != None else 0
+            dnode.left.height if dnode.left != None else -1,
+            dnode.right.height if dnode.right != None else -1
         ) + 1
     ddnode = dnode
     while ddnode.parent != None:
@@ -213,8 +213,8 @@ def fixHeight(dnode):
             ddnode.height = 0
         else:
             ddnode.height = max(
-                ddnode.left.height if ddnode.left != None else 0,
-                ddnode.right.height if ddnode.right != None else 0
+                ddnode.left.height if ddnode.left != None else -1,
+                ddnode.right.height if ddnode.right != None else -1
             ) + 1
 
 def balanceCheck(droot):
@@ -223,37 +223,27 @@ def balanceCheck(droot):
     return imbalanced node for rotation,
     otherwise return None
     """
-
-    def DFSNode(ddnode):
-
-        if ddnode.left != None and ddnode.right != None:
-            if ddnode.left.height * ddnode.right.height == 0:
-                if abs(ddnode.left.height - ddnode.right.height) > 1:
-                    # imbalanced node
-                    return ddnode
-
-            lR = None
-            rR = None
-            if ddnode.left.left != None and ddnode.left.right != None:
-                lR = DFSNode(ddnode.left)
-            if ddnode.right.left != None and ddnode.right.right != None:
-                rR = DFSNode(ddnode.right)
-            if lR != None:
-                return lR
-            if rR != None:
-                return rR
-            return None
+    dnode = droot
+    nl = dnode.left.height if dnode.left!=None else -1
+    nr = dnode.right.height if dnode.right!=None else -1
+    RR = None
+    if abs(nl-nr)>1:
+        if nl*nr<=0:
+            # unbalanced node: direct return
+            return dnode
         else:
-            if ddnode.left == None:
-                if ddnode.right == None:
-                    return None
-                if ddnode.right.height > 0:
-                    return ddnode
-            else:
-                if ddnode.left.height > 0:
-                    return ddnode
-
-    return DFSNode(droot)
+            RR = dnode
+    Rl = None
+    Rr = None
+    if dnode.left!=None:
+        Rl = balanceCheck(dnode.left)
+    if Rl!=None:
+        return Rl
+    if dnode.right!=None:
+        Rr = balanceCheck(dnode.right)
+    if Rr!=None:
+        return Rr
+    return RR
 
 def rotateLL(dnode):
     """
@@ -282,12 +272,12 @@ def rotateLL(dnode):
 
     # fix heights here
     k2.height = max(
-        k2.left.height if k2.left != None else 0,
-        k2.right.height if k2.right != None else 0
+        k2.left.height if k2.left != None else -1,
+        k2.right.height if k2.right != None else -1
     ) + 1
     k1.height = max(
-        k1.left.height if k1.left != None else 0,
-        k1.right.height if k1.right != None else 0
+        k1.left.height if k1.left != None else -1,
+        k1.right.height if k1.right != None else -1
     ) + 1
 
     return k1
@@ -351,35 +341,43 @@ def rotateRR(dnode):
 
     # fix heights here
     k1.height = max(
-        k1.left.height if k1.left != None else 0,
-        k1.right.height if k1.right != None else 0
+        k1.left.height if k1.left != None else -1,
+        k1.right.height if k1.right != None else -1
     ) + 1
     k2.height = max(
-        k2.left.height if k2.left != None else 0,
-        k2.right.height if k2.right != None else 0
+        k2.left.height if k2.left != None else -1,
+        k2.right.height if k2.right != None else -1
     ) + 1
 
     return k2
 
-def rotateCheck(dnode):
+def autoRotate(dnode):
     """
-    check and determine the type of rotation
+    check and determine the type of rotation, and do the rotation
     """
-    if dnode.left == None or dnode.left.height == 0:
-        # R*
-        if dnode.right.left == None or dnode.right.left.height == 0:
-            print("#RR")
+    nl = dnode.left.height if dnode.left!=None else -1
+    nr = dnode.right.height if dnode.right!=None else -1
+    if nl<nr:
+        # R*, nr>=0 must hold
+        ddnode = dnode.right
+        nnl = ddnode.left.height if ddnode.left!=None else -1
+        nnr = ddnode.right.height if ddnode.right!=None else -1
+        if nnl<nnr:
+            print("RR")
             return rotateRR(dnode)
         else:
-            print("#RL")
+            print("RL")
             return rotateRL(dnode)
     else:
-        # L*
-        if dnode.left.left == None or dnode.left.left.height == 0:
-            print("#LR")
+        # L*, nl>=0 must hold
+        ddnode = dnode.left
+        nnl = ddnode.left.height if ddnode.left!=None else -1
+        nnr = ddnode.right.height if ddnode.right!=None else -1
+        if nnl<nnr:
+            print("LR")
             return rotateLR(dnode)
         else:
-            print("#LL")
+            print("LL")
             return rotateLL(dnode)
 
 def getROOT(dnode):
