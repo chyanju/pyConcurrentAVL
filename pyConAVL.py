@@ -4,6 +4,29 @@ from IPython.display import Image, display
 # concurrent part
 import threading
 
+L = threading.Lock()
+def waitUntilShrinkCompleted(dnode, dversion):
+    """
+    wait for lock to release, dversion is the version before waiting
+    """
+    if not dversion.shrinking:
+        # version changed
+        return
+    # spin
+    scnt = 100
+    for i in range(scnt):
+        if dnode.version!=dversion:
+            return
+    # yield
+    ycnt = 0 # TODO: no yield here bc ycnt=0
+    
+    L.acquire()
+    dnode = dnode # IS THIS RIGHT?
+    L.release()
+    
+    assert dnode.version!=dversion
+    return
+
 class CC_RETRY(object):
     """
     Concurrent Control RETRY type
@@ -146,7 +169,8 @@ def getNode(droot, dkey):
             
             cversion = cnode.version
             if cnode.version.shrinking or cnode.version.unlinked:
-                # TODO: child.waitUntilShrinkCompleted(childOVL);
+                # wait
+                waitUntilShrinkCompleted(cnode, cversion)
                 if dnode.version!=dversion:
                     # should fall back to caller to gain a new dversion
                     return CC_SPECIAL_RETRY
@@ -177,13 +201,16 @@ def getNode(droot, dkey):
         if cnode is None:
             # no matching, should return the parent
             return droot
-        if cnode.version.shrinking or cnode.version.unlinked:
-            # TODO: child.waitUntilShrinkCompleted(childOVL);
+        
+        cversion = cnode.version
+        if cversion.shrinking or cversion.unlinked:
+            # wait
+            waitUntilShrinkCompleted(cnode, cversion)
             # and will RETRY
             continue
         elif cnode is droot.getChild(dkey-droot.key):
             # still the same cnode, not changing
-            vo = attemptGet(cnode, dkey, cnode.version, dkey-cnode.key)
+            vo = attemptGet(cnode, dkey, cversion, dkey-cnode.key)
             if vo!=CC_SPECIAL_RETRY:
                 return vo
         else:
@@ -520,3 +547,4 @@ def prettyPrintTree(root):
         G = Digraph(format='png')
         G = buildGraph(G, root)
         display(Image(G.render()))
+        
