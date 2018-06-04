@@ -10,9 +10,7 @@ class AVL(object):
 
     def put(self, dkey, dval = None):
         self.__putNode(self.root, dkey, str(dkey) if dval is None else dval)
-        unbalanced = self.__balanceCheck(self.root)
-        if unbalanced is not None:
-            self.root = self.__getRoot(self.__autoRotate(unbalanced))
+        self.__rebalance()
 
     def min(self):
         return self.__getMinNode(self.root)
@@ -22,15 +20,18 @@ class AVL(object):
 
     def remove(self, dkey):
         self.__removeNode(self.root, dkey)
-        unbalanced = self.__balanceCheck(self.root)
-        if unbalanced is not None:
-            self.root = self.__getRoot(self.__autoRotate(unbalanced))
+        self.__rebalance()
 
     def print(self):
         self.__prettyPrintTree(self.root)
         
     def __str__(self):
         return self.__strTree(self.root)
+
+    def __rebalance(self):
+        unbalanced = self.__balanceCheck(self.root)
+        if unbalanced is not None:
+            self.root = self.__getRoot(self.__autoRotate(unbalanced))
 
     def __strTree(self, droot):
         """
