@@ -28,7 +28,7 @@ def waitUntilShrinkCompleted(dnode, dversion):
 class CC_RETRY(object):
     """
     Concurrent Control RETRY type
-    usually happen in getNode when child node version changes
+    usually happen in __getNode when child node version changes
     and retry can be performed from the same while loop again
     """
     pass
@@ -36,7 +36,7 @@ class CC_RETRY(object):
 class CC_SPECIAL_RETRY(object):
     """
     Concurrent Control SPECIAL_RETRY type: read operation failed
-    usually happen in getNode when parent node version changes
+    usually happen in __getNode when parent node version changes
     and retry should be performed from the caller function (with an updated dversion)
     """
     pass
@@ -92,13 +92,12 @@ class Node(object):
         self.val = dval  # any type, None means this node is conceptually not present
         self.height = -1 if dkey is None else 0 # -1 if the node doesn't exist (a fake node with key: None)
 
-
-        # Nodes
+        # Pointers
         self.parent = None  # None means this node is the root node
         self.left = None
         self.right = None
         
-        # concurrent part
+        # Concurrency Control
         self.version = None if dkey is None else Version() # None for a fake node with key: None
         self.lock = threading.Lock()
 
@@ -187,7 +186,7 @@ def getNode(droot, dkey):
                 # else RETRY
                 continue
             
-    # getNode should test the root node first before entering the recursive attempt
+    # __getNode should test the root node first before entering the recursive attempt
     if droot.key==dkey or droot.height==-1: # fake ROOT
         return droot
     # enter the recursive attempt
@@ -314,14 +313,14 @@ def removeNode(droot, dkey):
                 tnode.key = maxnode.key
                 tnode.val = maxnode.val
                 _ = removeNode(tnode.left, maxnode.key)  # recursive, only once
-                # no need to fixHeight
+                # no need to __fixHeight
                 return tnode.parent
             else:
                 minnode = getMinNode(tnode.right)
                 tnode.key = minnode.key
                 tnode.val = minnode.val
                 _ = removeNode(tnode.right, minnode.key)  # recursive, only once
-                # no need to fixHeight
+                # no need to __fixHeight
                 return tnode.parent
     else:
         # cannot find a node: print WARNING
