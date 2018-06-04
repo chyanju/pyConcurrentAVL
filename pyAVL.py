@@ -93,12 +93,10 @@ class AVL(object):
             tnode.val = dval
         else:
             if dkey < tnode.key:
-                tnode.left = Node(dkey, dval)
-                tnode.left.parent = tnode
+                tnode.left = Node(dkey, dval, tnode)
                 self.__fixHeight(tnode.left)
             else:
-                tnode.right = Node(dkey, dval)
-                tnode.right.parent = tnode
+                tnode.right = Node(dkey, dval, tnode)
                 self.__fixHeight(tnode.right)
 
     def __getMinNode(self, droot):
@@ -407,17 +405,12 @@ class AVL(object):
             display(Image(G.render()))
 
 class Node(object):
-    def __init__(self, dkey, dval = None):
+    def __init__(self, dkey, dval = None, parent = None):
         self.key = dkey  # comparable, assume int
         self.val = dval  # any type, None means this node is conceptually not present
-
         self.height = 0
 
-        # Nodes
-        self.parent = None  # None means this node is the root node
+        # Pointers
+        self.parent = parent  # None means this node is the root node
         self.left = None
         self.right = None
-
-    def copy(self, node):
-        self.key = node.key
-        self.val = node.val
