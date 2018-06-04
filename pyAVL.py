@@ -1,10 +1,9 @@
 from graphviz import Digraph
 from IPython.display import Image, display
 
-
 class AVL(object):
     def __init__(self):
-        self.root = Node()
+        self.root = None
 
     def get(self, dkey):
         return self.__getNode(self.root, dkey)
@@ -64,7 +63,7 @@ class AVL(object):
         """
         dnode = droot
         while True:
-            if dnode.key == dkey or dnode.height == -1:
+            if dnode == None or dnode.key == dkey:
                 return dnode
             else:
                 if dkey < dnode.key:
@@ -85,20 +84,14 @@ class AVL(object):
         """
 
         tnode = self.__getNode(droot, dkey)
-        if tnode.height == -1:
+        if tnode is None:
             # init root
-            tnode.key = dkey
-            tnode.val = dval
-            tnode.height = 0
+            self.root = Node(dkey, dval)
         elif tnode.key == dkey:
             # update
             tnode.val = dval
         else:
-            # insert
-            if tnode.key is None:
-                tnode.key = dkey
-                tnode.val = dval
-            elif dkey < tnode.key:
+            if dkey < tnode.key:
                 tnode.left = Node(dkey, dval)
                 tnode.left.parent = tnode
                 self.__fixHeight(tnode.left)
@@ -113,10 +106,12 @@ class AVL(object):
         """
         m = droot
         dnode = droot
-        while dnode.left != None:
-            dnode = dnode.left
-            if dnode.key < m.key:
-                m = dnode
+
+        if droot is not None:
+            while dnode.left != None:
+                dnode = dnode.left
+                if dnode.key < m.key:
+                    m = dnode
         return m
 
     def __getMaxNode(self, droot):
@@ -125,10 +120,11 @@ class AVL(object):
         """
         m = droot
         dnode = droot
-        while dnode.right != None:
-            dnode = dnode.right
-            if dnode.key > m.key:
-                m = dnode
+        if droot is not None:
+            while dnode.right != None:
+                dnode = dnode.right
+                if dnode.key > m.key:
+                    m = dnode
         return m
 
     def __removeNode(self, droot, dkey):
@@ -137,7 +133,7 @@ class AVL(object):
         otherwise return None (means failure)
         """
         tnode = self.__getNode(droot, dkey)
-        if tnode.key == dkey:
+        if tnode is not None:
             # found a node: just remove it
             if tnode.parent == None:
                 # it's ROOT
@@ -145,16 +141,18 @@ class AVL(object):
                     temp = tnode.left if tnode.left != None else tnode.right
                     if temp == None:
                         # 0 Children
-                        tnode.copy(Node())
+                        self.root = None
                     else:
                         # 1 Child
-                        tnode.copy(temp)
-                        self.__removeNode(temp, temp.key)
+                        temp.parent = None
+                        self.root = temp
                 else:
                     # 2 children
                     temp = self.__getMinNode(tnode.right)
-                    tnode.copy(temp)
-                    self.__removeNode(tnode.right, tnode.key)
+                    tnode.left.parent = temp
+                    temp.left = tnode.left
+                    temp.parent = None
+                    self.root = temp
             else:
                 if tnode.height == 0:
                     # no children, simply remove itself
@@ -196,23 +194,24 @@ class AVL(object):
         fix the height properties from dnode back to ROOT
         used in remove method
         """
-        if dnode.left == None and dnode.right == None:
-            dnode.height = 0
-        else:
-            dnode.height = max(
-                dnode.left.height if dnode.left != None else -1,
-                dnode.right.height if dnode.right != None else -1
-            ) + 1
-        ddnode = dnode
-        while ddnode.parent != None:
-            ddnode = ddnode.parent
-            if ddnode.left == None and ddnode.right == None:
-                ddnode.height = 0
+        if dnode is not None:
+            if dnode.left == None and dnode.right == None:
+                dnode.height = 0
             else:
-                ddnode.height = max(
-                    ddnode.left.height if ddnode.left != None else -1,
-                    ddnode.right.height if ddnode.right != None else -1
+                dnode.height = max(
+                    dnode.left.height if dnode.left != None else -1,
+                    dnode.right.height if dnode.right != None else -1
                 ) + 1
+            ddnode = dnode
+            while ddnode.parent != None:
+                ddnode = ddnode.parent
+                if ddnode.left == None and ddnode.right == None:
+                    ddnode.height = 0
+                else:
+                    ddnode.height = max(
+                        ddnode.left.height if ddnode.left != None else -1,
+                        ddnode.right.height if ddnode.right != None else -1
+                    ) + 1
 
     def __balanceCheck(self, droot):
         """
@@ -221,6 +220,9 @@ class AVL(object):
         otherwise return None
         """
         dnode = droot
+        if droot is None:
+            return None
+
         nl = dnode.left.height if dnode.left != None else -1
         nr = dnode.right.height if dnode.right != None else -1
         RR = None
@@ -396,7 +398,7 @@ class AVL(object):
         return G
 
     def __prettyPrintTree(self, root):
-        if root.key == None:
+        if root == None:
             print("Tree is empty!")
         else:
             G = Digraph(format='png')
@@ -404,13 +406,11 @@ class AVL(object):
             display(Image(G.render()))
 
 class Node(object):
-    def __init__(self, dkey = None, dval = None):
+    def __init__(self, dkey, dval = None):
         self.key = dkey  # comparable, assume int
         self.val = dval  # any type, None means this node is conceptually not present
 
         self.height = 0
-        if dkey is None:
-            self.height = -1 # -1 if the node doesn't exist (a fake node with key: None)
 
         # Nodes
         self.parent = None  # None means this node is the root node
