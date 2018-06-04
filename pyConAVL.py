@@ -4,7 +4,6 @@ from IPython.display import Image, display
 # concurrent part
 import threading
 
-L = threading.Lock()
 def waitUntilShrinkCompleted(dnode, dversion):
     """
     wait for lock to release, dversion is the version before waiting
@@ -20,9 +19,8 @@ def waitUntilShrinkCompleted(dnode, dversion):
     # yield
     ycnt = 0 # TODO: no yield here bc ycnt=0
     
-    L.acquire()
-    dnode = dnode # IS THIS RIGHT?
-    L.release()
+    dnode.lock.acquire()
+    dnode.lock.release()
     
     assert dnode.version!=dversion
     return
@@ -92,10 +90,8 @@ class Node(object):
     def __init__(self, dkey = None, dval = None):
         self.key = dkey  # comparable, assume int
         self.val = dval  # any type, None means this node is conceptually not present
+        self.height = -1 if dkey is None else 0 # -1 if the node doesn't exist (a fake node with key: None)
 
-        self.height = 0
-        if dkey is None:
-            self.height = -1 # -1 if the node doesn't exist (a fake node with key: None)
 
         # Nodes
         self.parent = None  # None means this node is the root node
@@ -103,9 +99,8 @@ class Node(object):
         self.right = None
         
         # concurrent part
-        self.version = None # None for a fake node with key: None
-        if dkey is not None:
-            self.version = Version()
+        self.version = None if dkey is None else Version() # None for a fake node with key: None
+        self.lock = threading.Lock()
 
     def copy(self, node):
         self.key = node.key
