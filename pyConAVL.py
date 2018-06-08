@@ -136,12 +136,6 @@ class ConAVL(object):
             tnode.val = dval
             # TODO: should we initialize a new Version?
         else:
-            #TODO: I removed this because I didn't understand what this did
-            # # insert
-            # if tnode.key is None:
-            #     tnode.key = dkey
-            #     tnode.val = dval
-            #     tnode.version = Version()
             if dkey < tnode.key:
                 tnode.left = Node(dkey, dval, tnode)
                 self.__fixHeight(tnode.left)
@@ -161,8 +155,6 @@ class ConAVL(object):
         for i in range(scnt):
             if dnode.version != dversion:
                 return
-        # yield
-        ycnt = 0  # TODO: no yield here bc ycnt=0
 
         dnode.lock.acquire()
         dnode.lock.release()
