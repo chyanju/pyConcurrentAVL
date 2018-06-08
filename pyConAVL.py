@@ -253,27 +253,48 @@ class ConAVL(object):
 
     def __fixHeight(self, dnode):
         """
-        fix the height properties from dnode back to ROOT
-        used in remove method
+        Attempts to fix the height of a node. Returns the lowest damaged node that the current thread is responsible for or null if no damaged nodes are found.
         """
-        if dnode is not None:
-            if dnode.left == None and dnode.right == None:
-                dnode.height = 0
-            else:
-                dnode.height = max(
-                    dnode.left.height if dnode.left != None else -1,
-                    dnode.right.height if dnode.right != None else -1
-                ) + 1
-            ddnode = dnode
-            while ddnode.parent != None:
-                ddnode = ddnode.parent
-                if ddnode.left == None and ddnode.right == None:
-                    ddnode.height = 0
-                else:
-                    ddnode.height = max(
-                        ddnode.left.height if ddnode.left != None else -1,
-                        ddnode.right.height if ddnode.right != None else -1
-                    ) + 1
+
+        c = self.__nodeCondition(dnode)
+        if c == -1:
+            # Need to rebalance
+            pass
+        elif c == -2:
+            # Need to unlink
+            return dnode
+        elif c == -3:
+            # This thread doesn't need to do anything
+            return None
+        else:
+            # Fix height, return parent which will need fixing next
+            dnode.height = c
+            return dnode.parent
+
+    def __nodeCondition(self, dnode):
+        """
+        Returns whether a node needs to be fixed (the correct height) or other status codes.
+        """
+
+        nL = dnode.left
+        nR = dnode.right
+
+        if (nL is None or nR is None) and dnode.val is None:
+            # Need to unlink
+            return -1
+
+        hN = dnode.height
+        hL0 = 0 if nL is None else nL.height
+        hR0 = 0 if nR is None else nR.height
+
+        hNRepl = max(hL0, hR0) +1
+
+        if hL0 - hR0 != 0:
+            # Need to rebalance
+            return -2
+
+        # No action needed
+        return hNRepl if hN != hNRepl else -3
 
     def __balanceCheck(self, droot):
         """
