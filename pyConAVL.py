@@ -266,19 +266,15 @@ class ConAVL(object):
                 return
 
             if c is not UNLINK and c is not REBALANCE:
-                dnode.lock.acquire()
-                new = self.__fixHeight(dnode)
-                dnode.lock.release()
-                dnode = new
+                with dnode.lock:
+                    dnode = self.__fixHeight(dnode)
+
             else:
                 nParent = dnode.parent
-                nParent.lock.acquire()
-                if nParent.version.unlinked == False and dnode.parent == nParent:
-                    dnode.lock.acquire()
-                    new = self.__rebalance(nParent, dnode)
-                    dnode.lock.release()
-                    dnode = new
-                nParent.lock.release()
+                with nParent.lock:
+                    if nParent.version.unlinked == False and dnode.parent == nParent:
+                        with dnode.lock:
+                            dnode = self.__rebalanceNode(nParent, dnode)
 
     def __fixHeight(self, dnode):
         """
@@ -324,6 +320,78 @@ class ConAVL(object):
 
         # No action needed
         return hNRepl if hN != hNRepl else NOTHING
+
+    def __rebalanceNode(self, nParent, dnode):
+        nL = dnode.left #TODO: See some of the unshared stuff from snaoshot and see if it's necessary
+        nR = dnode.right
+
+        if (nL is None or nR is None) and dnode.val is None:
+            if self.__attemptUnlink(nParent, dnode):
+                # fix parent height
+                return self.__fixHeight(nParent)
+            return dnode
+        hN = dnode.height
+        hL0 = 0 if nL is None else nL.height
+        hR0 = 0 if nR is None else nR.height
+
+        hNRepl = max(hL0, hR0) +1
+
+        if hL0 - hR0 > 1:
+            return self.__rebalanceLeft(nParent, dnode, nR, hL0)
+        elif hL0 - hR0 < 1:
+            return self.__rebalanceRight(nParent, dnode, nL, hR0)
+        elif hN == hNRepl:
+            return None
+        else:
+            # fix height and fix the parent
+            dnode.height = hNRepl
+            return self.__fixHeight(nParent)
+
+    def __rebalanceLeft(self, nParent, dnode, nR, hL0):
+        with nR.lock:
+            hR = nR.height
+            if hL0 - hR <= -1:
+                # retry
+                return dnode
+            else:
+                nRL = nR.left #todo: see unshared again
+                hRL0 = 0 if nRL is None else nRL.height
+                hRR0 = 0 if nR.right is None else nR.right.height
+                if hRR0 >= hRL0:
+                    return self.__rotateLeft(nParent, dnode, hL0, nR, nRL, hRL0, hRR0)
+                else:
+                    with nRL.lock:
+                        hRL = nRL.height
+                        if hRR0 >= hRL:
+                            return self.__rotateLeft(nParent, dnode, hL0, nR, nRL, hRL, hRR0)
+                        else:
+                            hRLR = 0 if nRL.right is None else nRL.right.height
+                            if hRR0 - hRLR != 0 and not(hRR0 == 0 or hRLR == 0) and nR.val == None:
+                                return self.__rotateLeftOverRight(nParent, dnode, hL0, nR, nRL, hRR0, hRLR)
+                    return self.__rebalanceRight(dnode, nR, nRL, hRR0)
+
+    def __rebalanceRight(self, nParent, dnode, nL, hR0):
+        with nL.lock:
+            hL = nL.height
+            if hR0 - hL <= -1:
+                #retry
+                return dnode
+            else:
+                nLR = nL.right  # todo: see unshared again
+                hLR0 = 0 if nLR is None else nLR.height
+                hLL0 = 0 if nL.left is None else nL.left.height
+                if hLL0 >= hLR0:
+                    return self.__rotateRight(nParent, dnode, nL, hR0, hLL0, nLR, hLR0)
+                else:
+                    with nLR.lock:
+                        hLR = nLR.height
+                        if hLL0 >= hLR:
+                            return self.__rotateRight(nParent, dnode, nL, hR0, hLL0, nLR, hLR)
+                        else:
+                            hLRL = 0 if nLR.left is None else nLR.left.height
+                            if hLL0 - hLRL != 0 and not (hLL0 == 0 or hLRL == 0) and nL.val == None:
+                                return self.__rotateRightOverLeft(nParent, dnode, nL, hR0, hLL0, nLR, hLRL)
+                    return self.__rebalanceLeft(dnode, nL, nLR, hLL0)
 
     def __balanceCheck(self, droot):
         """
