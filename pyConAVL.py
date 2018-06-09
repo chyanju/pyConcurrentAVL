@@ -2,7 +2,9 @@ from graphviz import Digraph
 from IPython.display import Image, display
 import threading
 
-
+UNLINK = -1
+REBALANCE = -2
+NOTHING = -3
 class CC_RETRY(object):
     """
     Concurrent Control RETRY type
@@ -251,19 +253,46 @@ class ConAVL(object):
             print("WARNING: No matching node found, operation is invalidated.")
             return None
 
+    def __fixHeightAndRebalance(self, dnode):
+        """
+
+        :param dnode:
+        :return:
+        """
+        while dnode is not None and dnode.parent is not None:
+            c = self.__nodeCondition(dnode)
+            if c == NOTHING or dnode.version.unlinked == True:
+                # node is fine, or node isn't repairable
+                return
+
+            if c is not UNLINK and c is not REBALANCE:
+                dnode.lock.acquire()
+                new = self.__fixHeight(dnode)
+                dnode.lock.release()
+                dnode = new
+            else:
+                nParent = dnode.parent
+                nParent.lock.acquire()
+                if nParent.version.unlinked == False and dnode.parent == nParent:
+                    dnode.lock.acquire()
+                    new = self.__rebalance(nParent, dnode)
+                    dnode.lock.release()
+                    dnode = new
+                nParent.lock.release()
+
     def __fixHeight(self, dnode):
         """
         Attempts to fix the height of a node. Returns the lowest damaged node that the current thread is responsible for or null if no damaged nodes are found.
         """
 
         c = self.__nodeCondition(dnode)
-        if c == -1:
+        if c == REBALANCE:
             # Need to rebalance
             pass
-        elif c == -2:
+        elif c == UNLINK:
             # Need to unlink
             return dnode
-        elif c == -3:
+        elif c == NOTHING:
             # This thread doesn't need to do anything
             return None
         else:
@@ -281,7 +310,7 @@ class ConAVL(object):
 
         if (nL is None or nR is None) and dnode.val is None:
             # Need to unlink
-            return -1
+            return UNLINK
 
         hN = dnode.height
         hL0 = 0 if nL is None else nL.height
@@ -291,10 +320,10 @@ class ConAVL(object):
 
         if hL0 - hR0 != 0:
             # Need to rebalance
-            return -2
+            return REBALANCE
 
         # No action needed
-        return hNRepl if hN != hNRepl else -3
+        return hNRepl if hN != hNRepl else NOTHING
 
     def __balanceCheck(self, droot):
         """
