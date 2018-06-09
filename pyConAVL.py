@@ -381,17 +381,87 @@ class ConAVL(object):
                 hLR0 = 0 if nLR is None else nLR.height
                 hLL0 = 0 if nL.left is None else nL.left.height
                 if hLL0 >= hLR0:
-                    return self.__rotateRight(nParent, dnode, nL, hR0, hLL0, nLR, hLR0)
+                    return self.__rotateRight(nParent, dnode, hL, hR0, nLR, hLR0, hLL0)
                 else:
                     with nLR.lock:
                         hLR = nLR.height
                         if hLL0 >= hLR:
-                            return self.__rotateRight(nParent, dnode, nL, hR0, hLL0, nLR, hLR)
+                            return self.__rotateRight(nParent, dnode, hL, hR0, nLR, hLR, hLL0)
                         else:
                             hLRL = 0 if nLR.left is None else nLR.left.height
                             if hLL0 - hLRL != 0 and not (hLL0 == 0 or hLRL == 0) and nL.val == None:
                                 return self.__rotateRightOverLeft(nParent, dnode, nL, hR0, hLL0, nLR, hLRL)
                     return self.__rebalanceLeft(dnode, nL, nLR, hLL0)
+
+    def __rotateLeft(self, nParent, dnode, hL, nR, nRL, hRL, hRR):
+        nPL = nParent.left # sibling or itself
+
+        dnode.version.shrinking = True
+
+        # Fix all the pointers
+        dnode.right = nRL
+        if nRL is not None:
+            nRL.parent = dnode
+
+        nR.left = dnode
+        dnode.parent = nR
+
+        if nPL is dnode:
+            nParent.left = nR
+        else:
+            nParent.right = nR
+        nR.parent = nParent
+
+        # Fix the heights
+        hNRepl = max(hL, hRL) + 1
+        dnode.height = hNRepl
+        nR.height = max(hRR, hNRepl) + 1
+
+        dnode.version.shrinking = False
+
+        if (hRL - hL < -1 or hRL - hL > 1) or ((nRL == None or hL == 0) and dnode.val == None): #TODO: Why do we check for val == None?
+            return dnode
+
+        if (hRR - hNRepl< -1 or hRR - hNRepl > 1) or (hRR == 0 and nR.val == None):
+            return nR
+
+        return self.__fixHeight(nParent)
+
+    def __rotateRight(self, nParent, dnode, hR, nL, nLR, hLR, hLL):
+        #TODO: rotateRight and rotateLeft are the exact same function - they should definitely be merged before turning in
+        nPL = nParent.left  # sibling or itself
+
+        dnode.version.shrinking = True
+
+        # Fix all the pointers
+        dnode.right = nLR
+        if nLR is not None:
+            nLR.parent = dnode
+
+        nL.left = dnode
+        dnode.parent = nL
+
+        if nPL is dnode:
+            nParent.left = nL
+        else:
+            nParent.right = nL
+        nL.parent = nParent
+
+        # Fix the heights
+        hNRepl = max(hR, hLR) + 1
+        dnode.height = hNRepl
+        nL.height = max(hLL, hNRepl) + 1
+
+        dnode.version.shrinking = False
+
+        if (hLR - hR < -1 or hLR - hR > 1) or (
+                (nLR == None or hR == 0) and dnode.val == None):  # TODO: Why do we check for val == None?
+            return dnode
+
+        if (hLL - hNRepl < -1 or hLL - hNRepl > 1) or (hLL == 0 and nL.val == None):
+            return nL
+
+        return self.__fixHeight(nParent)
 
     def __balanceCheck(self, droot):
         """
