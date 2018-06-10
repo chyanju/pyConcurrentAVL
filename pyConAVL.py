@@ -38,7 +38,7 @@ class ConAVL(object):
         return self.__getNode(self.root, dkey)
 
     def put(self, dkey, dval = None):
-        self.__putNode(self.root, dkey, str(dkey) if dval is None else dval)
+        self.__putNode(dkey, UPDATE_ALWAYS, None, str(dkey) if dval is None else dval, self.root) #TODO: what the hell is this holder thing?
 
     def min(self):
         return self.__getMinNode(self.root)
@@ -119,7 +119,7 @@ class ConAVL(object):
     # k -> /: k is a comparable version of key
     ## right -> cnode: child node
     ## ovl -> cversion: child version
-    def __putNode(self, key, expected, newValue, holder):
+    def __putNode(self, key, func, expected, newValue, holder):
         """
         TO-UPDATE
         """
@@ -282,7 +282,7 @@ class ConAVL(object):
                     # None means the value does not exist
                     return False if func == UPDATE_IF_EQ else None
                 if newValue is None or attemptInsertIntoEmpty(key, newValue, holder):
-                    return True if func == UPDATE_IF_EQ else prev
+                    return True if func == UPDATE_IF_EQ else None
                 # else: RETRY
             else:
                 cversion = cnode.version
