@@ -57,73 +57,62 @@ class ConAVL(object):
 
     def __getNode(self, droot, dkey):
         """
-        if dkey presents, return the node,
-        otherwise, return the future dkey's parent node
+        if dkey presents, return the value,
+        otherwise, return None
         """
 
-        def __attemptGet(dnode, dkey, dversion, dbranch):
+        def attemptGet(key, node, dirToC, nodeOVL):
             while True:
-                cnode = dnode.getChild(dbranch)
-                if dnode.version != dversion:
-                    return CC_SPECIAL_RETRY
+                cnode = node.getChild(dirToC)
                 if cnode is None:
-                    # no matching, should return the parent
-                    return dnode
-
-                nbranch = dkey - cnode.key
-                if nbranch == 0:
-                    # found matching, return cnode
-                    return cnode
-
-                cversion = cnode.version
-                if cnode.version.shrinking or cnode.version.unlinked:
-                    # wait
-                    self.__waitUntilShrinkCompleted(cnode, cversion)
-                    if dnode.version != dversion:
-                        # should fall back to caller to gain a new dversion
+                    if node.version != nodeOVL:
                         return CC_SPECIAL_RETRY
-                    # else RETRY: will fall back to while loop and retry on child node
-                    continue
-                elif cnode is not dnode.getChild(dbranch):
-                    # cnode is no longer the correct cnode
-                    if dnode.version != dversion:
-                        return CC_SPECIAL_RETRY
-                    # else RETRY
-                    continue
+                    return None
                 else:
-                    if dnode.version != dversion:
-                        return CC_SPECIAL_RETRY
-                    # STILL VALID at this point !!!
-                    vo = __attemptGet(cnode, dkey, cversion, dkey - cnode.key)
-                    if vo != CC_SPECIAL_RETRY:
-                        return vo
-                    # else RETRY
-                    continue
+                    childCmp = key - cnode.key
+                    if childCmp==0:
+                        return cnode.value
+                    cversion = cnode.version
+                    if cversion.shrinking or cversion.unlinked:
+                        self.__waitUntilShrinkCompleted(cnode, cversion)
+                        if node.version != nodeOVL:
+                            return CC_SPECIAL_RETRY
+                        # else: RETRY
+                    elif cnode is not node.getChild(dirToC):
+                        if node.version != nodeOVL:
+                            return CC_SPECIAL_RETRY
+                        # else: RETRY
+                    else:
+                        if node.version != nodeOVL:
+                            return CC_SPECIAL_RETRY
+                        vo = attemptGet(key, cnode, childCmp, cversion)
+                        if vo != CC_SPECIAL_RETRY:
+                            return vo
+                        # else: RETRY
 
-        # __getNode should test the root node first before entering the recursive attempt
-        if droot is None or droot.key == dkey:
-            return droot
-        # enter the recursive attempt
+                    
         while True:
             cnode = droot.getChild(dkey - droot.key)
             if cnode is None:
-                # no matching, should return the parent
-                return droot
-
-            cversion = cnode.version
-            if cversion.shrinking or cversion.unlinked:
-                # wait
-                self.__waitUntilShrinkCompleted(cnode, cversion)
-                # and will RETRY
-                continue
-            elif cnode is droot.getChild(dkey - droot.key):
-                # still the same cnode, not changing
-                vo = __attemptGet(cnode, dkey, cversion, dkey - cnode.key)
-                if vo != CC_SPECIAL_RETRY:
-                    return vo
+                return None
             else:
-                # RETRY
-                continue
+                cmp = dkey - cnode.key
+                if cmp==0:
+                    return
+                cversion = cnode.version
+                if cversion.shrinking or cversion.unlinked:
+                    self.__waitUntilShrinkComplete(cnode, cversion)
+                    # and then RETRY
+                    continue
+                elif cnode is droot.getChild(dkey - droot.key):
+                    # still the same cnode, not changing
+                    vo = attemptGet(key, cnode, dkey-cnode.key, cversion)
+                    if vo != CC_SPECIAL_RETRY:
+                        return vo
+                    # else: RETRY
+                else:
+                    # RETRY
+                    continue
 
     # equal to "updateUnderRoot"
     # original -> renamed
