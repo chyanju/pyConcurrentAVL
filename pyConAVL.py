@@ -364,9 +364,9 @@ class ConAVL(object):
 
     def __fixHeightAndRebalance(self, dnode):
         """
-
-        :param dnode:
-        :return:
+        UNLINK = -1
+        REBALANCE = -2
+        NOTHING = -3
         """
         while dnode is not None and dnode.parent is not None:
             c = self.__nodeCondition(dnode)
@@ -464,7 +464,6 @@ class ConAVL(object):
                 nRL = nR.left #todo: see unshared again
                 hRL0 = 0 if nRL is None else nRL.height
                 hRR0 = 0 if nR.right is None else nR.right.height
-
                 if hRR0 >= hRL0:
                     return self.__rotateLeft(nParent, dnode, hL0, nR, nRL, hRL0, hRR0)
                 else:
@@ -474,7 +473,7 @@ class ConAVL(object):
                             return self.__rotateLeft(nParent, dnode, hL0, nR, nRL, hRL, hRR0)
                         else:
                             hRLR = 0 if nRL.right is None else nRL.right.height
-                            if hRR0 - hRLR != 0 and not ((hRR0 == 0 or hRLR == 0) and nR.val is None):
+                            if (hRR0 - hRLR >= -1 and  hRR0 - hRLR <= 1)and not ((hRR0 == 0 or hRLR == 0) and nR.val is None):
                                 return self.__rotateLeftOverRight(nParent, dnode, hL0, nR, nRL, hRR0, hRLR)
                     return self.__rebalanceRight(dnode, nR, nRL, hRR0)
 
@@ -498,7 +497,7 @@ class ConAVL(object):
                             return self.__rotateRight(nParent, dnode, hR0, nL, nLR, hLR, hLL0)
                         else:
                             hLRL = 0 if nLR.left is None else nLR.left.height
-                            if hLL0 - hLRL != 0 and not ((hLL0 == 0 or hLRL == 0) and nL.val is None):
+                            if (hLL0 - hLRL >= -1 and hLL0 - hLRL <= 1) and not ((hLL0 == 0 or hLRL == 0) and nL.val is None):
                                 return self.__rotateRightOverLeft(nParent, dnode, hR0, nL, nLR, hLL0, hLRL)
                     return self.__rebalanceLeft(dnode, nL, nLR, hLL0)
 
