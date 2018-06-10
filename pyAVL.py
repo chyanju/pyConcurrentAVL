@@ -3,6 +3,10 @@ from IPython.display import Image, display
 import time
 import random
 
+def fakeConflict():
+    for i in range(random.randint(0,1000000)):
+        pass
+
 class AVL(object):
     def __init__(self):
         self.root = None
@@ -87,12 +91,9 @@ class AVL(object):
         """
 
         tnode = self.__getNode(droot, dkey)
-        # ============================= #
-        # ==== fake conflict codes ==== #
-        # ============================= #
-        for i in range(random.randint(0,10000000)):
-            pass
-        # ============================= #
+        
+        fakeConflict()
+        
         if tnode is None:
             # init root
             self.root = Node(dkey, dval)
@@ -201,6 +202,7 @@ class AVL(object):
         fix the height properties from dnode back to ROOT
         used in remove method
         """
+        
         if dnode is not None:
             if dnode.left == None and dnode.right == None:
                 dnode.height = 0
@@ -367,9 +369,11 @@ class AVL(object):
             nnl = ddnode.left.height if ddnode.left != None else -1
             nnr = ddnode.right.height if ddnode.right != None else -1
             if nnl < nnr:
+                fakeConflict()
                 # print("RR")
                 return self.__rotateRR(dnode)
             else:
+                fakeConflict()
                 # print("RL")
                 return self.__rotateRL(dnode)
         else:
@@ -378,9 +382,11 @@ class AVL(object):
             nnl = ddnode.left.height if ddnode.left != None else -1
             nnr = ddnode.right.height if ddnode.right != None else -1
             if nnl < nnr:
+                fakeConflict()
                 # print("LR")
                 return self.__rotateLR(dnode)
             else:
+                fakeConflict()
                 # print("LL")
                 return self.__rotateLL(dnode)
 
