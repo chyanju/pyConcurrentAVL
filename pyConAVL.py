@@ -224,11 +224,11 @@ class ConAVL(object):
                             return self.__noUpdateResult(func, prev)
                         if prev==None:
                             return self.__updateResult(func, prev)
-                        if not attemptUnlink_nl(parent,node):
+                        if not attemptUnlink(parent,node):
                             return CC_SPECIAL_RETRY
                     # == ignore damage
                     # TODO: fixHeight
-                # == fixHeightAndRebalance(damaged);
+                # == fixHeightAndRebalance(damaged)
                 return self.__updateResult(func, prev)
             else:
                 with node.lock:
@@ -244,7 +244,7 @@ class ConAVL(object):
                 return self.__updateResult(func, prev)
         
         # helper function of __putNode
-        def attemptUnlink_nl(parent, node):
+        def attemptUnlink(parent, node):
             # == ignore assert
             parentL = parent.left
             parentR = parent.right
