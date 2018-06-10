@@ -560,8 +560,109 @@ class ConAVL(object):
                         else:
                             hLRL = 0 if nLR.left is None else nLR.left.height
                             if hLL0 - hLRL != 0 and not (hLL0 == 0 or hLRL == 0) and nL.val is None:
-                                return self.__rotateRightOverLeft(nParent, dnode, nL, hR0, hLL0, nLR, hLRL)
+                                return self.__rotateRightOverLeft(nParent, dnode, hR0, nL, nLR, hLL0, hLRL)
                     return self.__rebalanceLeft(dnode, nL, nLR, hLL0)
+
+    def __rotateLeftOverRight(self, nParent, dnode, hL, nR, nRL, hRR, hRLR):
+
+        nPL = nParent.left
+        nRLL = nRL.left
+        nRLR = nRL.right
+        hRLL = 0 if nRLL is None else nRLL.height
+
+        dnode.version.shrinking = True
+        nR.version.shrinking = True
+
+        # Fix all the pointers
+        dnode.right = nRLL
+        if nRLL is not None:
+            nRLL.parent = dnode
+
+        nR.left = nRLR
+        if nRLR is not None:
+            nRLR.parent = nR
+
+        nRL.right = nR
+        nR.parent = nRL
+        nRL.left = dnode
+        dnode.parent = nRL
+
+        if nPL != dnode:
+            nParent.right = nRL
+        else:
+            nParent.left = nRL
+        nRL.parent = nParent
+
+        # Fix all the heights
+        hNRepl = max(hRLL, hL) +1
+        dnode.height = hNRepl
+        hRRepl = max(hRR, hRLR) +1
+        nR.height = hRRepl
+        nRL.height = max(hNRepl, hRRepl) + 1
+
+        dnode.version.shrinking = False
+        nR.version.shrinking = False
+
+        assert abs(hRR-hRLR) <= 1
+
+        if (hRLL - hL < -1 or hRLL - hL > 1) or ((nRLL is None or hL == 0) and dnode.val is None):
+            return dnode
+
+        if (hRRepl - hNRepl < -1 or hRRepl - hNRepl > 1) :
+            return nRL
+        return self.__fixHeight(nParent)
+
+    def __rotateRightOverLeft(self, nParent, dnode, hR, nL, nLR, hLL, hLRL):
+
+        nPL = nParent.left
+        nLRL = nLR.left
+        nLRR = nLR.right
+        hLRR = 0 if nLRR is None else nLRR.height
+
+        dnode.version.shrinking = True
+        nL.version.shrinking = True
+
+        # Fix all the pointers
+
+        dnode.left = nLRR
+        if nLRR is not None:
+            nLRR.parent = dnode
+
+        nL.right = nLRL
+        if nLRL is not None:
+            nLRL.parent = nL
+
+
+        nLR.right = nL
+        nL.parent = nLR
+        nLR.right = dnode
+        dnode.parent = nLR
+
+        if nPL != dnode:
+            nParent.right = nLR
+        else:
+            nParent.left = nLR
+        nLR.parent = nParent
+
+        # Fix all the heights
+        hNRepl = max(hLRR, hR) + 1
+        dnode.height = hNRepl
+        hLRepl = max(hLL, hLRL) + 1
+        nL.height = hLRepl
+        nLR.height = max(hNRepl, hLRepl) + 1
+
+        dnode.version.shrinking = False
+        nL.version.shrinking = False
+
+        assert abs(hLL - hLRL) <= 1
+        assert not ((hLL == 0 or nLRL is None) and nL.val is None)
+
+        if (hLRR - hR < -1 or hLRR - hR > 1) or ((nLRR is None or hR == 0) and dnode.val is None):
+            return dnode
+
+        if (hLRepl - hNRepl < -1 or hLRepl - hNRepl > 1) :
+            return nLR
+        return self.__fixHeight(nParent)
 
     def __rotateLeft(self, nParent, dnode, hL, nR, nRL, hRL, hRR):
         nPL = nParent.left # sibling or itself
@@ -598,17 +699,16 @@ class ConAVL(object):
         return self.__fixHeight(nParent)
 
     def __rotateRight(self, nParent, dnode, hR, nL, nLR, hLR, hLL):
-        #TODO: rotateRight and rotateLeft are the exact same function - they should definitely be merged before turning in
         nPL = nParent.left  # sibling or itself
 
         dnode.version.shrinking = True
 
         # Fix all the pointers
-        dnode.right = nLR
+        dnode.left = nLR
         if nLR is not None:
             nLR.parent = dnode
 
-        nL.left = dnode
+        nL.right = dnode
         dnode.parent = nL
 
         if nPL is dnode:
@@ -694,7 +794,6 @@ class Node(object):
             return self.right
         else:
             return None
-        
 
 def strTree(droot):
     """
