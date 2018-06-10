@@ -5,6 +5,12 @@ import threading
 UNLINK = -1
 REBALANCE = -2
 NOTHING = -3
+
+UPDATE_ALWAYS = 0
+UPDATE_IF_ABSENT = 1
+UPDATE_IF_PRESENT = 2
+UPDATE_IF_EQ = 3
+
 class CC_RETRY(object):
     """
     Concurrent Control RETRY type
@@ -19,6 +25,9 @@ class CC_SPECIAL_RETRY(object):
     usually happen in __getNode when parent node version changes
     and retry should be performed from the caller function (with an updated dversion)
     """
+    pass
+
+class CC_UNLINKED_OVL(object):
     pass
 
 class ConAVL(object):
@@ -116,28 +125,218 @@ class ConAVL(object):
                 # RETRY
                 continue
 
-    def __putNode(self, droot, dkey, dval):
+    # equal to "updateUnderRoot"
+    # original -> renamed
+    # k -> /: k is a comparable version of key
+    ## right -> cnode: child node
+    ## ovl -> cversion: child version
+    def __putNode(self, key, expected, newValue, holder):
         """
-        if dkey presents, perform update,
-        otherwise perform insertion
+        TO-UPDATE
         """
-
-        tnode = self.__getNode(droot, dkey)
-        if tnode is None:
-            # init root
-            self.root = Node(dkey, dval)
-        elif tnode.key == dkey:
-            # update
-            tnode.val = dval
-            # TODO: should we initialize a new Version?
-        else:
-            if dkey < tnode.key:
-                tnode.left = Node(dkey, dval, tnode)
-                self.__fixHeight(tnode.left)
+        
+        # helper function of __putNode
+        def attemptInsertIntoEmpty(key, vOpt, holder):
+            result = None # should be set to True or False when return
+            holder.lock.acquire()
+            cnode = holder.getChild(key - holder.key) # lock before get, looks good
+            if cnode is None:
+                if key<holder.key:
+                    holder.left = Node(key, vOpt, holder)
+                    # TODO: fixHeight
+                else:
+                    # key>holder.key
+                    holder.right = Node(key, vOpt, holder)
+                    # TODO: fixHeight
+                result = True
             else:
-                tnode.right = Node(dkey, dval, tnode)
-                self.__fixHeight(tnode.right)
-
+                result = False
+            holder.lock.release()
+            return result
+        
+        # helper function of __putNode
+        def attemptUpdate(key, func, expected, newValue, parent, node, nodeOVL):
+            # == ignore the assert
+            cmp = key - node.key
+            if cmp==0:
+                return attemptNodeUpdate(func, expceted, newValue, parent, node)
+            while True:
+                child = node.getChild(cmp)
+                if node.version != nodeOVL:
+                    return CC_SPECIAL_RETRY
+                
+                if child is None:
+                    # key is not present
+                    if newValue == None:
+                        # removal is requested
+                        return None
+                    else:
+                        # update will be an insert
+                        success = None
+                        # == ignore damaged 
+                        node.lock.acquire()
+                        if node.version != nodeOVL:
+                            return CC_SPECIAL_RETRY
+                        if node.getChild(cmp) != None:
+                            # lost a race with a concurrent insert
+                            # must retry in the outer loop
+                            success = False
+                            # == ignore damage
+                            # will RETRY
+                        else:
+                            if not self.__shouldUpdate(func, None, expected):
+                                return self.__noUpdateResult(func, None)
+                            if key<holder.key:
+                                holder.left = Node(key, newValue, holder)
+                                success = True
+                                # TODO: fixHeight
+                            else:
+                                # key>holder.key
+                                holder.right = Node(key, newValue, holder)
+                                success = True
+                                # TODO: fixHeight
+                            # == ignore damage
+                        node.lock.release()
+                        if success:
+                            # TODO: fixHeight
+                            return self.__updateResult(func, None)
+                        # else: RETRY
+                else:
+                    childOVL = child.version
+                    if childOVL.shrinking or childOVL.unlinked:
+                        self.__waitUntilShrinkCompleted(child, childOVL)
+                        # and then RETRY
+                    elif child is not node.getChild(cmp):
+                        continue # which is RETRY
+                    else:
+                        if node.version != nodeOVL:
+                            return CC_SPECIAL_RETRY
+                        vo = attemptUpdate(key, func, expected, newValue, node, child, childOVL)
+                        if vo != CC_SPECIAL_RETRY:
+                            return vo
+                        # else: RETRY
+           
+        # helper function of __putNode
+        def attemptNodeUpdate(func, expected, newValue, parent, node):
+            if newValue == None:
+                # removal
+                if node.value == None:
+                    # already removed, nothing to do
+                    return None
+            
+            if newValue == None and (node.left is None or node.right is None):
+                # potential unlink, get ready by locking the parent
+                # == ignore prev
+                # == ignore damage
+                parent.lock.acquire()
+                if parent.version.unlinked or node.parent != parent:
+                    return CC_SPECIAL_RETRY
+                node.lock.acquire()
+                prev = node.value;
+                if not self.__shouldUpdate(func, prev, expected):
+                    return self.__noUpdateResult(func, prev)
+                if prev==None:
+                    return self.__updateResult(func, prev)
+                if not attemptUnlink_nl(parent,node):
+                    return CC_SPECIAL_RETRY
+                node.lock.release()
+                # == ignore damage
+                # TODO: fixHeight
+                parent.lock.release()
+                # == fixHeightAndRebalance(damaged);
+                return self.__updateResult(func, prev)
+            else:
+                node.lock.acquire()
+                if node.version.unlinked:
+                    return CC_SPECIAL_RETRY
+                prev = node.value
+                if not self.__shouldUpdate(func, prev, expected):
+                    return self.__noUpdateResult(func, prev)
+                # retry if we now detect that unlink is possible
+                if newValue == None and (node.left is None or node.right is None):
+                    return CC_SPECIAL_RETRY
+                node.value = newValue
+                node.lock.release()
+                return self.__updateResult(func, prev)
+        
+        # helper function of __putNode
+        def attemptUnlink_nl(parent, node):
+            # == ignore assert
+            parentL = parent.left
+            parentR = parent.right
+            if parentL != node and parentR != node:
+                # node is no longer a child of parent
+                return False
+            
+            # == ignore assert
+            left = node.left
+            right = node.right
+            if (left is not None) and (right is not None):
+                # splicing is no longer possible
+                return False
+            
+            splice = left if (left is not None) else right
+            if parentL == node:
+                parent.left = splice
+            else:
+                parent.right = splice
+            if splice is not None:
+                splice.parent = parent
+                
+            node.version = CC_UNLINKED_OVL
+            node.value = None
+            
+            return True
+            
+        # =============================================================================
+        while True:
+            # choose the proper child node
+            cnode = holder.getChild(key - holder.key)
+            if cnode is None:
+                # key is not present
+                if not self.__shouldUpdate(func, None, expected):
+                    # None means the value does not exist
+                    return self.__noUpdateResult(func, None)
+                if newValue == None or attemptInsertIntoEmpty(key, newValue, holder):
+                    return self.__updateResult(func, None)
+                # else: RETRY
+            else:
+                cversion = cnode.version
+                if cversion.shrinking or cversion.unlinked:
+                    self.__waitUntilShrinkCompleted(cnode, cversion)
+                    # and then RETRY
+                elif cnode is holder.getChild(key - holder.key):
+                    vo = attemptUpdate(key, func, expected, newValue, holder, cnode, cversion)
+                    if vo != CC_SPECIAL_RETRY:
+                        return vo
+                # else: RETRY
+        
+    def __shouldUpdate(self, func, prev, expected):
+        """
+        prev: value type
+        expexted: value type
+        """
+        if func==UPDATE_ALWAYS:
+            return True
+        elif func==UPDATE_IF_ABSENT:
+            # None here means the value does not exist, compared to CC_NULL which means to be removed
+            return prev is None
+        elif func==UPDATE_IF_PRESENT:
+            # None here means the value does not exist, compared to CC_NULL which means to be removed
+            return prev is not None
+        else: # UPDATE_IF_EQ
+            # == ignore assert
+            if prev is None:
+                return False
+            # == AllowNullValues is False, ignore related codes
+            return prev==expected
+   
+    def __noUpdateResult(self, func, prev):
+        return False if func == UPDATE_IF_EQ else prev
+    
+    def __updateResult(self, func, prev):
+        return True if func == UPDATE_IF_EQ else prev
+    
     def __waitUntilShrinkCompleted(self, dnode, dversion):
         """
         wait for lock to release, dversion is the version before waiting
@@ -527,6 +726,7 @@ class Node(object):
             return self.right
         else:
             return None
+        
 
 def strTree(droot):
     """
