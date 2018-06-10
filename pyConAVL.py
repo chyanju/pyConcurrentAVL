@@ -433,7 +433,6 @@ class ConAVL(object):
     def __rebalanceNode(self, nParent, dnode):
         nL = dnode.left #TODO: See some of the unshared stuff from snaoshot and see if it's necessary
         nR = dnode.right
-
         if (nL is None or nR is None) and dnode.val is None:
             if self.__attemptUnlink(nParent, dnode):
                 # fix parent height
@@ -444,7 +443,6 @@ class ConAVL(object):
         hR0 = 0 if nR is None else nR.height
 
         hNRepl = max(hL0, hR0) +1
-
         if hL0 - hR0 < -1:
             return self.__rebalanceLeft(nParent, dnode, nR, hL0)
         elif hL0 - hR0 > 1:
@@ -466,6 +464,7 @@ class ConAVL(object):
                 nRL = nR.left #todo: see unshared again
                 hRL0 = 0 if nRL is None else nRL.height
                 hRR0 = 0 if nR.right is None else nR.right.height
+
                 if hRR0 >= hRL0:
                     return self.__rotateLeft(nParent, dnode, hL0, nR, nRL, hRL0, hRR0)
                 else:
@@ -475,7 +474,7 @@ class ConAVL(object):
                             return self.__rotateLeft(nParent, dnode, hL0, nR, nRL, hRL, hRR0)
                         else:
                             hRLR = 0 if nRL.right is None else nRL.right.height
-                            if hRR0 - hRLR != 0 and not(hRR0 == 0 or hRLR == 0) and nR.val is None:
+                            if hRR0 - hRLR != 0 and not ((hRR0 == 0 or hRLR == 0) and nR.val is None):
                                 return self.__rotateLeftOverRight(nParent, dnode, hL0, nR, nRL, hRR0, hRLR)
                     return self.__rebalanceRight(dnode, nR, nRL, hRR0)
 
@@ -499,7 +498,7 @@ class ConAVL(object):
                             return self.__rotateRight(nParent, dnode, hR0, nL, nLR, hLR, hLL0)
                         else:
                             hLRL = 0 if nLR.left is None else nLR.left.height
-                            if hLL0 - hLRL != 0 and not (hLL0 == 0 or hLRL == 0) and nL.val is None:
+                            if hLL0 - hLRL != 0 and not ((hLL0 == 0 or hLRL == 0) and nL.val is None):
                                 return self.__rotateRightOverLeft(nParent, dnode, hR0, nL, nLR, hLL0, hLRL)
                     return self.__rebalanceLeft(dnode, nL, nLR, hLL0)
 
