@@ -147,7 +147,7 @@ class ConAVL(object):
             # == ignore the assert
             cmp = key - node.key
             if cmp==0:
-                return attemptNodeUpdate(func, expceted, newValue, parent, node)
+                return attemptNodeUpdate(func, expected, newValue, parent, node)
             while True:
                 child = node.getChild(cmp)
                 if node.version != nodeOVL:
