@@ -32,7 +32,7 @@ class CC_UNLINKED_OVL(object):
 
 class ConAVL(object):
     def __init__(self):
-        self.root = None
+        self.root = Node(None)
 
     def get(self, dkey):
         return self.__getNode(self.root, dkey)
@@ -128,13 +128,13 @@ class ConAVL(object):
         def attemptInsertIntoEmpty(key, vOpt, holder):
             result = None # should be set to True or False when return
             with holder.lock:
-                cnode = holder.getChild(key - holder.key) # lock before get, looks good
-                if cnode is None:
-                    if key<holder.key:
-                        holder.left = Node(key, vOpt, holder)
-                    else:
-                        # key>holder.key
-                        holder.right = Node(key, vOpt, holder)
+                # cnode = holder.getChild(key - holder.key) # lock before get, looks good
+                if holder.right is None:
+                    # if key<holder.key:
+                    #     holder.left = Node(key, vOpt, holder)
+                    # else:
+                    #     # key>holder.key
+                    holder.right = Node(key, vOpt, holder)
                     result = True
                     holder.height = 1
                 else:
@@ -174,16 +174,15 @@ class ConAVL(object):
                             else:
                                 if not self.__shouldUpdate(func, None, expected):
                                     return False if func == UPDATE_IF_EQ else None
-                                if key < holder.key:
-                                    holder.left = Node(key, newValue, holder)
-                                    success = True
+                                if cmp <= -1:
+                                    node.left = Node(key, newValue, node)
                                 else:
                                     # key>holder.key
-                                    holder.right = Node(key, newValue, holder)
-                                    success = True
-                                damaged = self.__fixHeight(holder)
+                                    node.right = Node(key, newValue, node)
 
-                                # == ignore damage
+                                success = True
+                                damaged = self.__fixHeight(node)
+
                         if success:
                             self.__fixHeightAndRebalance(damaged)
                             return True if func == UPDATE_IF_EQ else None
@@ -246,8 +245,9 @@ class ConAVL(object):
         # =============================================================================
         while True:
             # choose the proper child node
-            cnode = holder.getChild(key - holder.key)
-            if cnode is None:
+            # cnode = holder.getChild(key - holder.key)
+            right = holder.right
+            if right is None:
                 # key is not present
                 if not self.__shouldUpdate(func, None, expected):
                     # None means the value does not exist
@@ -256,12 +256,12 @@ class ConAVL(object):
                     return True if func == UPDATE_IF_EQ else None
                 # else: RETRY
             else:
-                cversion = cnode.version
+                cversion = right.version
                 if cversion.shrinking or cversion.unlinked:
-                    self.__waitUntilShrinkCompleted(cnode, cversion)
+                    self.__waitUntilShrinkCompleted(right, cversion)
                     # and then RETRY
-                elif cnode is holder.getChild(key - holder.key):
-                    vo = attemptUpdate(key, func, expected, newValue, holder, cnode, cversion)
+                elif right is holder.right:
+                    vo = attemptUpdate(key, func, expected, newValue, holder, right, cversion)
                     if vo != CC_SPECIAL_RETRY:
                         return vo
                 # else: RETRY
