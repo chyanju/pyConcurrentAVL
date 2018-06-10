@@ -85,7 +85,7 @@ class ConAVL(object):
                     else:
                         if node.version != nodeOVL:
                             return CC_SPECIAL_RETRY
-                        vo = attemptGet(key, cnode, childCmp, cversion)
+                        vo = attemptGet(self, key, cnode, childCmp, cversion)
                         if vo != CC_SPECIAL_RETRY:
                             return vo
                         # else: RETRY
@@ -106,7 +106,7 @@ class ConAVL(object):
                     continue
                 elif cnode is droot.getChild(dkey - droot.key):
                     # still the same cnode, not changing
-                    vo = attemptGet(dkey, cnode, dkey-cnode.key, cversion)
+                    vo = attemptGet(self, dkey, cnode, dkey-cnode.key, cversion)
                     if vo != CC_SPECIAL_RETRY:
                         return vo
                     # else: RETRY
