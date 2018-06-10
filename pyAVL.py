@@ -1,5 +1,7 @@
 from graphviz import Digraph
 from IPython.display import Image, display
+import time
+import random
 
 class AVL(object):
     def __init__(self):
@@ -85,6 +87,12 @@ class AVL(object):
         """
 
         tnode = self.__getNode(droot, dkey)
+        # ============================= #
+        # ==== fake conflict codes ==== #
+        # ============================= #
+        for i in range(random.randint(0,10000000)):
+            pass
+        # ============================= #
         if tnode is None:
             # init root
             self.root = Node(dkey, dval)
