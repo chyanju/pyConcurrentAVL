@@ -47,7 +47,7 @@ class ConAVL(object):
         return self.__getMaxNode(self.root)
 
     def remove(self, dkey):
-        self.__removeNode(self.root, dkey)
+        self.__putNode(dkey, UPDATE_ALWAYS, None, None, self.root)
 
     def print(self):
         self.__prettyPrintTree(self.root)
@@ -71,7 +71,7 @@ class ConAVL(object):
                 else:
                     childCmp = key - cnode.key
                     if childCmp == 0:
-                        return cnode.value
+                        return cnode.val
                     cversion = cnode.version
                     if cversion.shrinking or cversion.unlinked:
                         self.__waitUntilShrinkCompleted(cnode, cversion)
@@ -92,21 +92,21 @@ class ConAVL(object):
 
                     
         while True:
-            cnode = droot.getChild(dkey - droot.key)
-            if cnode is None:
+            right = droot.right
+            if right is None:
                 return None
             else:
-                cmp = dkey - cnode.key
+                cmp = dkey - right.key
                 if cmp == 0:
-                    return
-                cversion = cnode.version
+                    return right.val
+                cversion = right.version
                 if cversion.shrinking or cversion.unlinked:
-                    self.__waitUntilShrinkCompleted(cnode, cversion)
+                    self.__waitUntilShrinkCompleted(right, cversion)
                     # and then RETRY
                     continue
-                elif cnode is droot.getChild(dkey - droot.key):
+                elif right is droot.right:
                     # still the same cnode, not changing
-                    vo = attemptGet(self, dkey, cnode, dkey-cnode.key, cversion)
+                    vo = attemptGet(self, dkey, right, dkey-right.key, cversion)
                     if vo != CC_SPECIAL_RETRY:
                         return vo
                     # else: RETRY
@@ -175,10 +175,11 @@ class ConAVL(object):
                                 if not self.__shouldUpdate(func, None, expected):
                                     return False if func == UPDATE_IF_EQ else None
                                 if cmp <= -1:
-                                    node.left = Node(key, newValue, node)
+                                    node.left = Node(key, dval=newValue, parent=node)
                                 else:
                                     # key>holder.key
-                                    node.right = Node(key, newValue, node)
+                                    node.right = Node(key, dval=newValue, parent=node)
+
                                 success = True
                                 damaged = self.__fixHeight(node)
 
@@ -205,7 +206,7 @@ class ConAVL(object):
         def attemptNodeUpdate(func, expected, newValue, parent, node):
             if newValue is None:
                 # removal
-                if node.value is None:
+                if node.val is None:
                     # already removed, nothing to do
                     return None
             
@@ -217,7 +218,7 @@ class ConAVL(object):
                     if parent.version.unlinked or node.parent != parent:
                         return CC_SPECIAL_RETRY
                     with node.lock:
-                        prev = node.value
+                        prev = node.val
                         if not self.__shouldUpdate(func, prev, expected):
                             return False if func == UPDATE_IF_EQ else prev
                         if prev is None:
@@ -232,13 +233,13 @@ class ConAVL(object):
                 with node.lock:
                     if node.version.unlinked:
                         return CC_SPECIAL_RETRY
-                    prev = node.value
+                    prev = node.val
                     if not self.__shouldUpdate(func, prev, expected):
                         return False if func == UPDATE_IF_EQ else prev
                     # retry if we now detect that unlink is possible
                     if newValue is None and (node.left is None or node.right is None):
                         return CC_SPECIAL_RETRY
-                    node.value = newValue
+                    node.val = newValue
                 return True if func == UPDATE_IF_EQ else prev
             
         # =============================================================================
@@ -263,9 +264,11 @@ class ConAVL(object):
                     vo = attemptUpdate(key, func, expected, newValue, holder, right, cversion)
                     if vo != CC_SPECIAL_RETRY:
                         return vo
-                # else: RETRY
+                    # else: RETRY
+                else:
+                    continue # RETRY
         
-    def __attemptUnlink(parent, node):
+    def __attemptUnlink(self, parent, node):
         # == ignore assert
         parentL = parent.left
         parentR = parent.right
@@ -289,7 +292,7 @@ class ConAVL(object):
             splice.parent = parent
 
         node.version = CC_UNLINKED_OVL
-        node.value = None
+        node.val = None
 
         return True
     
@@ -359,75 +362,12 @@ class ConAVL(object):
                     m = dnode
         return m
 
-    def __removeNode(self, droot, dkey):
-        """
-        if dkey exists, remove the corresponding node and return its parent,
-        otherwise return None (means failure)
-        """
-        tnode = self.__getNode(droot, dkey)
-        if tnode is not None:
-            # found a node: just remove it
-            if tnode.parent is None:
-                # it's ROOT
-                if tnode.left is None or tnode.right is None:
-                    temp = tnode.left if tnode.left is not None else tnode.right
-                    if temp is None:
-                        # 0 Children
-                        self.root = None
-                    else:
-                        # 1 Child
-                        temp.parent = None
-                        self.root = temp
-                else:
-                    # 2 children
-                    temp = self.__getMinNode(tnode.right)
-                    tnode.left.parent = temp
-                    temp.left = tnode.left
-                    temp.parent = None
-                    self.root = temp
-            else:
-                if tnode.height == 0:
-                    # no children, simply remove itself
-                    p = tnode.parent
-                    if tnode.key == p.key:
-                        # special case: in a recursive remove e.g. 8(4,7) -> 4(4,7) or 7(4,7)
-                        if p.left is not None and p.left.key == tnode.key:
-                            p.left = None
-                        else:
-                            p.right = None
-                    elif tnode.key < p.key:
-                        p.left = None
-                    else:
-                        p.right = None
-                    tnode.parent = None
-                    self.__fixHeight(p)
-                    return p
-                elif tnode.left is not None:
-                    maxnode = self.__getMaxNode(tnode.left)
-                    tnode.key = maxnode.key
-                    tnode.val = maxnode.val
-                    _ = self.__removeNode(tnode.left, maxnode.key)  # recursive, only once
-                    # no need to __fixHeight
-                    return tnode.parent
-                else:
-                    minnode = self.__getMinNode(tnode.right)
-                    tnode.key = minnode.key
-                    tnode.val = minnode.val
-                    _ = self.__removeNode(tnode.right, minnode.key)  # recursive, only once
-                    # no need to __fixHeight
-                    return tnode.parent
-        else:
-            # cannot find a node: print WARNING
-            print("WARNING: No matching node found, operation is invalidated.")
-            return None
-
     def __fixHeightAndRebalance(self, dnode):
         """
 
         :param dnode:
         :return:
         """
-
         while dnode is not None and dnode.parent is not None:
             c = self.__nodeCondition(dnode)
             if c == NOTHING or dnode.version.unlinked == True:
@@ -449,6 +389,7 @@ class ConAVL(object):
         """
         Attempts to fix the height of a node. Returns the lowest damaged node that the current thread is responsible for or null if no damaged nodes are found.
         """
+
         c = self.__nodeCondition(dnode)
         if c == REBALANCE:
             # Need to rebalance
@@ -471,7 +412,6 @@ class ConAVL(object):
 
         nL = dnode.left
         nR = dnode.right
-
 
         if (nL is None or nR is None) and dnode.val is None:
             # Need to unlink
