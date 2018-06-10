@@ -135,8 +135,8 @@ class ConAVL(object):
                     # else:
                     #     # key>holder.key
                     holder.right = Node(key, vOpt, holder)
+                    holder.height = 2
                     result = True
-                    holder.height = 1
                 else:
                     result = False
             return result
@@ -159,7 +159,7 @@ class ConAVL(object):
                         return None
                     else:
                         # update will be an insert
-                        success = None
+                        success = False
                         # == ignore damaged 
                         with node.lock:
                             if node.version != nodeOVL:
@@ -179,11 +179,10 @@ class ConAVL(object):
                                 else:
                                     # key>holder.key
                                     node.right = Node(key, newValue, node)
-
                                 success = True
                                 damaged = self.__fixHeight(node)
 
-                        if success:
+                        if success == True:
                             self.__fixHeightAndRebalance(damaged)
                             return True if func == UPDATE_IF_EQ else None
                         # else: RETRY
@@ -428,6 +427,7 @@ class ConAVL(object):
         :param dnode:
         :return:
         """
+
         while dnode is not None and dnode.parent is not None:
             c = self.__nodeCondition(dnode)
             if c == NOTHING or dnode.version.unlinked == True:
@@ -449,7 +449,6 @@ class ConAVL(object):
         """
         Attempts to fix the height of a node. Returns the lowest damaged node that the current thread is responsible for or null if no damaged nodes are found.
         """
-
         c = self.__nodeCondition(dnode)
         if c == REBALANCE:
             # Need to rebalance
@@ -473,6 +472,7 @@ class ConAVL(object):
         nL = dnode.left
         nR = dnode.right
 
+
         if (nL is None or nR is None) and dnode.val is None:
             # Need to unlink
             return UNLINK
@@ -483,7 +483,7 @@ class ConAVL(object):
 
         hNRepl = max(hL0, hR0) +1
 
-        if hL0 - hR0 != 0:
+        if hL0 - hR0 > 1 or hL0 - hR0 < -1:
             # Need to rebalance
             return REBALANCE
 
@@ -505,9 +505,9 @@ class ConAVL(object):
 
         hNRepl = max(hL0, hR0) +1
 
-        if hL0 - hR0 > 1:
+        if hL0 - hR0 < -1:
             return self.__rebalanceLeft(nParent, dnode, nR, hL0)
-        elif hL0 - hR0 < 1:
+        elif hL0 - hR0 > 1:
             return self.__rebalanceRight(nParent, dnode, nL, hR0)
         elif hN == hNRepl:
             return None
@@ -519,7 +519,7 @@ class ConAVL(object):
     def __rebalanceLeft(self, nParent, dnode, nR, hL0):
         with nR.lock:
             hR = nR.height
-            if hL0 - hR <= -1:
+            if hL0 - hR >= -1:
                 # retry
                 return dnode
             else:
@@ -540,9 +540,10 @@ class ConAVL(object):
                     return self.__rebalanceRight(dnode, nR, nRL, hRR0)
 
     def __rebalanceRight(self, nParent, dnode, nL, hR0):
+
         with nL.lock:
             hL = nL.height
-            if hR0 - hL <= -1:
+            if hL - hR0 <= 1:
                 #retry
                 return dnode
             else:
@@ -550,12 +551,12 @@ class ConAVL(object):
                 hLR0 = 0 if nLR is None else nLR.height
                 hLL0 = 0 if nL.left is None else nL.left.height
                 if hLL0 >= hLR0:
-                    return self.__rotateRight(nParent, dnode, hL, hR0, nLR, hLR0, hLL0)
+                    return self.__rotateRight(nParent, dnode, hR0, nL,  nLR, hLR0, hLL0)
                 else:
                     with nLR.lock:
                         hLR = nLR.height
                         if hLL0 >= hLR:
-                            return self.__rotateRight(nParent, dnode, hL, hR0, nLR, hLR, hLL0)
+                            return self.__rotateRight(nParent, dnode, hR0, nL, nLR, hLR, hLL0)
                         else:
                             hLRL = 0 if nLR.left is None else nLR.left.height
                             if hLL0 - hLRL != 0 and not (hLL0 == 0 or hLRL == 0) and nL.val is None:
@@ -733,7 +734,7 @@ class ConAVL(object):
         return self.__fixHeight(nParent)
 
     def __buildGraph(self, G, node, color=None):
-        G.node(str(node.key), str(node.key))
+        G.node(str(node.key), str(node.key) + " " + str(node.height))
         if color is not None:
             G.edge(str(node.parent.key), str(node.key), color=color)
         if node.left is not None:
@@ -743,18 +744,18 @@ class ConAVL(object):
         return G
 
     def __prettyPrintTree(self, root):
-        if root is None:
+        if root.right is None:
             print("Tree is empty!")
         else:
             G = Digraph(format='png')
-            G = self.__buildGraph(G, root)
+            G = self.__buildGraph(G, root.right)
             display(Image(G.render()))
     
 class Node(object):
     def __init__(self, dkey, dval = None, parent=None):
         self.key = dkey  # comparable, assume int
-        self.val = dval  # any type, None means this node is conceptually not present
-        self.height =  0
+        self.val = dval if dval is not None else dkey
+        self.height =  1
 
         # Pointers
         self.parent = parent  # None means this node is the root node
