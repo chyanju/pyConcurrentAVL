@@ -639,16 +639,6 @@ class ConAVL(object):
 
         return self.__fixHeight(nParent)
 
-    def __getRoot(self, dnode):
-        """
-        trace back to the actual top ROOT node
-        """
-        if dnode is not None:
-            ddnode = dnode
-            while ddnode.parent is not None:
-                ddnode = ddnode.parent
-            return ddnode
-
     def __buildGraph(self, G, node, color=None):
         G.node(str(node.key), str(node.key))
         if color is not None:
