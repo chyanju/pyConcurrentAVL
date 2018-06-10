@@ -47,7 +47,7 @@ class ConAVL(object):
         return self.__getMaxNode(self.root)
 
     def remove(self, dkey):
-        self.__removeNode(self.root, dkey)
+        self.__putNode(dkey, UPDATE_ALWAYS, None, None, self.root)
 
     def print(self):
         self.__prettyPrintTree(self.root)
@@ -268,7 +268,7 @@ class ConAVL(object):
                 else:
                     continue # RETRY
         
-    def __attemptUnlink(parent, node):
+    def __attemptUnlink(self, parent, node):
         # == ignore assert
         parentL = parent.left
         parentR = parent.right
@@ -361,68 +361,6 @@ class ConAVL(object):
                 if dnode.key > m.key:
                     m = dnode
         return m
-
-    def __removeNode(self, droot, dkey):
-        """
-        if dkey exists, remove the corresponding node and return its parent,
-        otherwise return None (means failure)
-        """
-        tnode = self.__getNode(droot, dkey)
-        if tnode is not None:
-            # found a node: just remove it
-            if tnode.parent is None:
-                # it's ROOT
-                if tnode.left is None or tnode.right is None:
-                    temp = tnode.left if tnode.left is not None else tnode.right
-                    if temp is None:
-                        # 0 Children
-                        self.root = None
-                    else:
-                        # 1 Child
-                        temp.parent = None
-                        self.root = temp
-                else:
-                    # 2 children
-                    temp = self.__getMinNode(tnode.right)
-                    tnode.left.parent = temp
-                    temp.left = tnode.left
-                    temp.parent = None
-                    self.root = temp
-            else:
-                if tnode.height == 0:
-                    # no children, simply remove itself
-                    p = tnode.parent
-                    if tnode.key == p.key:
-                        # special case: in a recursive remove e.g. 8(4,7) -> 4(4,7) or 7(4,7)
-                        if p.left is not None and p.left.key == tnode.key:
-                            p.left = None
-                        else:
-                            p.right = None
-                    elif tnode.key < p.key:
-                        p.left = None
-                    else:
-                        p.right = None
-                    tnode.parent = None
-                    self.__fixHeight(p)
-                    return p
-                elif tnode.left is not None:
-                    maxnode = self.__getMaxNode(tnode.left)
-                    tnode.key = maxnode.key
-                    tnode.val = maxnode.val
-                    _ = self.__removeNode(tnode.left, maxnode.key)  # recursive, only once
-                    # no need to __fixHeight
-                    return tnode.parent
-                else:
-                    minnode = self.__getMinNode(tnode.right)
-                    tnode.key = minnode.key
-                    tnode.val = minnode.val
-                    _ = self.__removeNode(tnode.right, minnode.key)  # recursive, only once
-                    # no need to __fixHeight
-                    return tnode.parent
-        else:
-            # cannot find a node: print WARNING
-            print("WARNING: No matching node found, operation is invalidated.")
-            return None
 
     def __fixHeightAndRebalance(self, dnode):
         """
