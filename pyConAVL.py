@@ -146,7 +146,7 @@ class ConAVL(object):
         def attemptUpdate(key, func, expected, newValue, parent, node, nodeOVL):
             # == ignore the assert
             cmp = key - node.key
-            if cmp==0:
+            if cmp == 0:
                 return attemptNodeUpdate(func, expected, newValue, parent, node)
             while True:
                 child = node.getChild(cmp)
@@ -222,7 +222,7 @@ class ConAVL(object):
                         prev = node.value
                         if not self.__shouldUpdate(func, prev, expected):
                             return self.__noUpdateResult(func, prev)
-                        if prev==None:
+                        if prev is None:
                             return self.__updateResult(func, prev)
                         if not attemptUnlink(parent,node):
                             return CC_SPECIAL_RETRY
@@ -300,12 +300,12 @@ class ConAVL(object):
         prev: value type
         expexted: value type
         """
-        if func==UPDATE_ALWAYS:
+        if func == UPDATE_ALWAYS:
             return True
-        elif func==UPDATE_IF_ABSENT:
+        elif func == UPDATE_IF_ABSENT:
             # None here means the value does not exist, compared to CC_NULL which means to be removed
             return prev is None
-        elif func==UPDATE_IF_PRESENT:
+        elif func == UPDATE_IF_PRESENT:
             # None here means the value does not exist, compared to CC_NULL which means to be removed
             return prev is not None
         else: # UPDATE_IF_EQ
@@ -313,7 +313,7 @@ class ConAVL(object):
             if prev is None:
                 return False
             # == AllowNullValues is False, ignore related codes
-            return prev==expected
+            return prev == expected
    
     def __noUpdateResult(self, func, prev):
         return False if func == UPDATE_IF_EQ else prev
