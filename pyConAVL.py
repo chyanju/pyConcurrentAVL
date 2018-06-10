@@ -127,20 +127,19 @@ class ConAVL(object):
         # helper function of __putNode
         def attemptInsertIntoEmpty(key, vOpt, holder):
             result = None # should be set to True or False when return
-            holder.lock.acquire()
-            cnode = holder.getChild(key - holder.key) # lock before get, looks good
-            if cnode is None:
-                if key<holder.key:
-                    holder.left = Node(key, vOpt, holder)
-                    # TODO: fixHeight
+            with holder.lock:
+                cnode = holder.getChild(key - holder.key) # lock before get, looks good
+                if cnode is None:
+                    if key<holder.key:
+                        holder.left = Node(key, vOpt, holder)
+                        # TODO: fixHeight
+                    else:
+                        # key>holder.key
+                        holder.right = Node(key, vOpt, holder)
+                        # TODO: fixHeight
+                    result = True
                 else:
-                    # key>holder.key
-                    holder.right = Node(key, vOpt, holder)
-                    # TODO: fixHeight
-                result = True
-            else:
-                result = False
-            holder.lock.release()
+                    result = False
             return result
         
         # helper function of __putNode
@@ -163,29 +162,28 @@ class ConAVL(object):
                         # update will be an insert
                         success = None
                         # == ignore damaged 
-                        node.lock.acquire()
-                        if node.version != nodeOVL:
-                            return CC_SPECIAL_RETRY
-                        if node.getChild(cmp) is not None:
-                            # lost a race with a concurrent insert
-                            # must retry in the outer loop
-                            success = False
-                            # == ignore damage
-                            # will RETRY
-                        else:
-                            if not self.__shouldUpdate(func, None, expected):
-                                return self.__noUpdateResult(func, None)
-                            if key<holder.key:
-                                holder.left = Node(key, newValue, holder)
-                                success = True
-                                # TODO: fixHeight
+                        with node.lock:
+                            if node.version != nodeOVL:
+                                return CC_SPECIAL_RETRY
+                            if node.getChild(cmp) is not None:
+                                # lost a race with a concurrent insert
+                                # must retry in the outer loop
+                                success = False
+                                # == ignore damage
+                                # will RETRY
                             else:
-                                # key>holder.key
-                                holder.right = Node(key, newValue, holder)
-                                success = True
-                                # TODO: fixHeight
-                            # == ignore damage
-                        node.lock.release()
+                                if not self.__shouldUpdate(func, None, expected):
+                                    return self.__noUpdateResult(func, None)
+                                if key<holder.key:
+                                    holder.left = Node(key, newValue, holder)
+                                    success = True
+                                    # TODO: fixHeight
+                                else:
+                                    # key>holder.key
+                                    holder.right = Node(key, newValue, holder)
+                                    success = True
+                                    # TODO: fixHeight
+                                # == ignore damage
                         if success:
                             # TODO: fixHeight
                             return self.__updateResult(func, None)
@@ -217,35 +215,32 @@ class ConAVL(object):
                 # potential unlink, get ready by locking the parent
                 # == ignore prev
                 # == ignore damage
-                parent.lock.acquire()
-                if parent.version.unlinked or node.parent != parent:
-                    return CC_SPECIAL_RETRY
-                node.lock.acquire()
-                prev = node.value;
-                if not self.__shouldUpdate(func, prev, expected):
-                    return self.__noUpdateResult(func, prev)
-                if prev==None:
-                    return self.__updateResult(func, prev)
-                if not attemptUnlink_nl(parent,node):
-                    return CC_SPECIAL_RETRY
-                node.lock.release()
-                # == ignore damage
-                # TODO: fixHeight
-                parent.lock.release()
+                with parent.lock:
+                    if parent.version.unlinked or node.parent != parent:
+                        return CC_SPECIAL_RETRY
+                    with node.lock:
+                        prev = node.value
+                        if not self.__shouldUpdate(func, prev, expected):
+                            return self.__noUpdateResult(func, prev)
+                        if prev==None:
+                            return self.__updateResult(func, prev)
+                        if not attemptUnlink_nl(parent,node):
+                            return CC_SPECIAL_RETRY
+                    # == ignore damage
+                    # TODO: fixHeight
                 # == fixHeightAndRebalance(damaged);
                 return self.__updateResult(func, prev)
             else:
-                node.lock.acquire()
-                if node.version.unlinked:
-                    return CC_SPECIAL_RETRY
-                prev = node.value
-                if not self.__shouldUpdate(func, prev, expected):
-                    return self.__noUpdateResult(func, prev)
-                # retry if we now detect that unlink is possible
-                if newValue is None and (node.left is None or node.right is None):
-                    return CC_SPECIAL_RETRY
-                node.value = newValue
-                node.lock.release()
+                with node.lock:
+                    if node.version.unlinked:
+                        return CC_SPECIAL_RETRY
+                    prev = node.value
+                    if not self.__shouldUpdate(func, prev, expected):
+                        return self.__noUpdateResult(func, prev)
+                    # retry if we now detect that unlink is possible
+                    if newValue is None and (node.left is None or node.right is None):
+                        return CC_SPECIAL_RETRY
+                    node.value = newValue
                 return self.__updateResult(func, prev)
         
         # helper function of __putNode
