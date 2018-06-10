@@ -674,7 +674,7 @@ class ConAVL(object):
         return self.__fixHeight(nParent)
 
     def __buildGraph(self, G, node, color=None):
-        G.node(str(node.key), str(node.key) + " " + str(node.height))
+        G.node(str(node.key), str(node.key) + " " + str(node.val) + " " +  str(node.height))
         if color is not None:
             G.edge(str(node.parent.key), str(node.key), color=color)
         if node.left is not None:
@@ -694,7 +694,7 @@ class ConAVL(object):
 class Node(object):
     def __init__(self, dkey, dval = None, parent=None):
         self.key = dkey  # comparable, assume int
-        self.val = dval if dval is not None else dkey
+        self.val = dval
         self.height =  1
 
         # Pointers
