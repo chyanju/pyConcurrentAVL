@@ -224,7 +224,7 @@ class ConAVL(object):
                             return False if func == UPDATE_IF_EQ else prev
                         if prev is None:
                             return True if func == UPDATE_IF_EQ else prev
-                        if not attemptUnlink(parent,node):
+                        if not self.__attemptUnlink(parent,node):
                             return CC_SPECIAL_RETRY
                     # == ignore damage
                     # TODO: fixHeight
@@ -242,35 +242,6 @@ class ConAVL(object):
                         return CC_SPECIAL_RETRY
                     node.value = newValue
                 return True if func == UPDATE_IF_EQ else prev
-        
-        # helper function of __putNode
-        def attemptUnlink(parent, node):
-            # == ignore assert
-            parentL = parent.left
-            parentR = parent.right
-            if parentL != node and parentR != node:
-                # node is no longer a child of parent
-                return False
-            
-            # == ignore assert
-            left = node.left
-            right = node.right
-            if (left is not None) and (right is not None):
-                # splicing is no longer possible
-                return False
-            
-            splice = left if (left is not None) else right
-            if parentL == node:
-                parent.left = splice
-            else:
-                parent.right = splice
-            if splice is not None:
-                splice.parent = parent
-                
-            node.version = CC_UNLINKED_OVL
-            node.value = None
-            
-            return True
             
         # =============================================================================
         while True:
@@ -295,6 +266,34 @@ class ConAVL(object):
                         return vo
                 # else: RETRY
         
+    def __attemptUnlink(parent, node):
+        # == ignore assert
+        parentL = parent.left
+        parentR = parent.right
+        if parentL != node and parentR != node:
+            # node is no longer a child of parent
+            return False
+
+        # == ignore assert
+        left = node.left
+        right = node.right
+        if (left is not None) and (right is not None):
+            # splicing is no longer possible
+            return False
+
+        splice = left if (left is not None) else right
+        if parentL == node:
+            parent.left = splice
+        else:
+            parent.right = splice
+        if splice is not None:
+            splice.parent = parent
+
+        node.version = CC_UNLINKED_OVL
+        node.value = None
+
+        return True
+    
     def __shouldUpdate(self, func, prev, expected):
         """
         prev: value type
