@@ -71,7 +71,7 @@ class ConAVL(object):
                 else:
                     childCmp = key - cnode.key
                     if childCmp == 0:
-                        return cnode.value
+                        return cnode.val
                     cversion = cnode.version
                     if cversion.shrinking or cversion.unlinked:
                         self.__waitUntilShrinkCompleted(cnode, cversion)
@@ -92,21 +92,21 @@ class ConAVL(object):
 
                     
         while True:
-            cnode = droot.getChild(dkey - droot.key)
-            if cnode is None:
+            right = droot.right
+            if right is None:
                 return None
             else:
-                cmp = dkey - cnode.key
+                cmp = dkey - right.key
                 if cmp == 0:
-                    return
-                cversion = cnode.version
+                    return right.val
+                cversion = right.version
                 if cversion.shrinking or cversion.unlinked:
-                    self.__waitUntilShrinkCompleted(cnode, cversion)
+                    self.__waitUntilShrinkCompleted(right, cversion)
                     # and then RETRY
                     continue
-                elif cnode is droot.getChild(dkey - droot.key):
+                elif right is droot.right:
                     # still the same cnode, not changing
-                    vo = attemptGet(self, dkey, cnode, dkey-cnode.key, cversion)
+                    vo = attemptGet(self, dkey, right, dkey-right.key, cversion)
                     if vo != CC_SPECIAL_RETRY:
                         return vo
                     # else: RETRY
@@ -134,9 +134,9 @@ class ConAVL(object):
                     #     holder.left = Node(key, vOpt, holder)
                     # else:
                     #     # key>holder.key
-                    holder.right = Node(key, vOpt, holder)
-                    result = True
+                    holder.right = Node(key, dval=vOpt, parent=holder)
                     holder.height = 1
+                    result = True
                 else:
                     result = False
             return result
@@ -175,10 +175,10 @@ class ConAVL(object):
                                 if not self.__shouldUpdate(func, None, expected):
                                     return False if func == UPDATE_IF_EQ else None
                                 if cmp <= -1:
-                                    node.left = Node(key, newValue, node)
+                                    node.left = Node(key, dval=newValue, parent=node)
                                 else:
                                     # key>holder.key
-                                    node.right = Node(key, newValue, node)
+                                    node.right = Node(key, dval=newValue, parent=node)
 
                                 success = True
                                 damaged = self.__fixHeight(node)
@@ -206,7 +206,7 @@ class ConAVL(object):
         def attemptNodeUpdate(func, expected, newValue, parent, node):
             if newValue is None:
                 # removal
-                if node.value is None:
+                if node.val is None:
                     # already removed, nothing to do
                     return None
             
@@ -218,7 +218,7 @@ class ConAVL(object):
                     if parent.version.unlinked or node.parent != parent:
                         return CC_SPECIAL_RETRY
                     with node.lock:
-                        prev = node.value
+                        prev = node.val
                         if not self.__shouldUpdate(func, prev, expected):
                             return False if func == UPDATE_IF_EQ else prev
                         if prev is None:
@@ -233,13 +233,13 @@ class ConAVL(object):
                 with node.lock:
                     if node.version.unlinked:
                         return CC_SPECIAL_RETRY
-                    prev = node.value
+                    prev = node.val
                     if not self.__shouldUpdate(func, prev, expected):
                         return False if func == UPDATE_IF_EQ else prev
                     # retry if we now detect that unlink is possible
                     if newValue is None and (node.left is None or node.right is None):
                         return CC_SPECIAL_RETRY
-                    node.value = newValue
+                    node.val = newValue
                 return True if func == UPDATE_IF_EQ else prev
             
         # =============================================================================
@@ -264,7 +264,9 @@ class ConAVL(object):
                     vo = attemptUpdate(key, func, expected, newValue, holder, right, cversion)
                     if vo != CC_SPECIAL_RETRY:
                         return vo
-                # else: RETRY
+                    # else: RETRY
+                else:
+                    continue # RETRY
         
     def __attemptUnlink(parent, node):
         # == ignore assert
@@ -290,7 +292,7 @@ class ConAVL(object):
             splice.parent = parent
 
         node.version = CC_UNLINKED_OVL
-        node.value = None
+        node.val = None
 
         return True
     
