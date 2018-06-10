@@ -132,12 +132,11 @@ class ConAVL(object):
                 if cnode is None:
                     if key<holder.key:
                         holder.left = Node(key, vOpt, holder)
-                        # TODO: fixHeight
                     else:
                         # key>holder.key
                         holder.right = Node(key, vOpt, holder)
-                        # TODO: fixHeight
                     result = True
+                    holder.height = 1
                 else:
                     result = False
             return result
@@ -169,23 +168,24 @@ class ConAVL(object):
                                 # lost a race with a concurrent insert
                                 # must retry in the outer loop
                                 success = False
+                                damaged = None
                                 # == ignore damage
                                 # will RETRY
                             else:
                                 if not self.__shouldUpdate(func, None, expected):
                                     return False if func == UPDATE_IF_EQ else None
-                                if key<holder.key:
+                                if key < holder.key:
                                     holder.left = Node(key, newValue, holder)
                                     success = True
-                                    # TODO: fixHeight
                                 else:
                                     # key>holder.key
                                     holder.right = Node(key, newValue, holder)
                                     success = True
-                                    # TODO: fixHeight
+                                damaged = self.__fixHeight(holder)
+
                                 # == ignore damage
                         if success:
-                            # TODO: fixHeight
+                            self.__fixHeightAndRebalance(damaged)
                             return True if func == UPDATE_IF_EQ else None
                         # else: RETRY
                 else:
@@ -227,8 +227,8 @@ class ConAVL(object):
                         if not self.__attemptUnlink(parent,node):
                             return CC_SPECIAL_RETRY
                     # == ignore damage
-                    # TODO: fixHeight
-                # == fixHeightAndRebalance(damaged)
+                    damaged = self.__fixHeight(parent)
+                self.__fixHeightAndRebalance(damaged)
                 return True if func == UPDATE_IF_EQ else prev
             else:
                 with node.lock:
