@@ -53,7 +53,7 @@ class ConAVL(object):
         self.__prettyPrintTree(self.root)
         
     def __str__(self):
-        return strTree(self.root)
+        return strTree(self.root.right)
 
     def __getNode(self, droot, dkey):
         """
@@ -744,7 +744,7 @@ def strTree(droot):
             return dstree
         else:
             dstree += ddnode.val
-        if ddnode.height > 0:
+        if ddnode.height > 1:
             dstree += "("
             dstree = DFSNode(ddnode.left, dstree)
             dstree += ","
