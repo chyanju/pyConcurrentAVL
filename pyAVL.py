@@ -3,13 +3,15 @@ from IPython.display import Image, display
 import time
 import random
 
-def fakeConflict():
-    for i in range(random.randint(0,1000000)):
-        pass
+def fakeConflict(self):
+    if self.simulate == True:
+        for i in range(random.randint(0,1000000)):
+            pass
 
 class AVL(object):
-    def __init__(self):
+    def __init__(self, simulate=False):
         self.root = None
+        self.simulate = simulate
 
     def get(self, dkey):
         return self.__getNode(self.root, dkey)
@@ -92,7 +94,7 @@ class AVL(object):
 
         tnode = self.__getNode(droot, dkey)
         
-        fakeConflict()
+        fakeConflict(self)
         
         if tnode is None:
             # init root
@@ -369,11 +371,11 @@ class AVL(object):
             nnl = ddnode.left.height if ddnode.left != None else -1
             nnr = ddnode.right.height if ddnode.right != None else -1
             if nnl < nnr:
-                fakeConflict()
+                fakeConflict(self)
                 # print("RR")
                 return self.__rotateRR(dnode)
             else:
-                fakeConflict()
+                fakeConflict(self)
                 # print("RL")
                 return self.__rotateRL(dnode)
         else:
@@ -382,11 +384,11 @@ class AVL(object):
             nnl = ddnode.left.height if ddnode.left != None else -1
             nnr = ddnode.right.height if ddnode.right != None else -1
             if nnl < nnr:
-                fakeConflict()
+                fakeConflict(self)
                 # print("LR")
                 return self.__rotateLR(dnode)
             else:
-                fakeConflict()
+                fakeConflict(self)
                 # print("LL")
                 return self.__rotateLL(dnode)
 

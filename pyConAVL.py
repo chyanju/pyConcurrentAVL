@@ -26,11 +26,12 @@ class CC_UNLINKED(object):
 
 class ConAVL(object):
 
-    def __init__(self):
+    def __init__(self, simulate=False):
         """
         Initializes the ConAVL object. The root is set as an empty node. root.right will point to the actual root.
         """
         self.root = Node(None)
+        self.simulate = simulate
 
     def get(self, key):
         """
@@ -171,11 +172,11 @@ class ConAVL(object):
                                 # will RETRY
                             else:
                                 if cmp <= -1:
-                                    fakeConflict()
+                                    fakeConflict(self)
                                     node.left = Node(key, val=newValue, parent=node)
                                 else:
                                     # key>root.key
-                                    fakeConflict()
+                                    fakeConflict(self)
                                     node.right = Node(key, val=newValue, parent=node)
 
                                 success = True
@@ -239,7 +240,7 @@ class ConAVL(object):
         # =============================================================================
         while True:
             right = root.right
-            fakeConflict()
+            fakeConflict(self)
             if right is None:
                 # key is not present
                 if newValue is None or attemptInsertIntoEmpty(key, newValue, root):
@@ -251,7 +252,7 @@ class ConAVL(object):
                     self.__waitUntilShrinkCompleted(right, cversion)
                     # and then RETRY
                 elif right is root.right:
-                    fakeConflict()
+                    fakeConflict(self)
                     vo = attemptUpdate(key, newValue, root, right, cversion)
                     if vo != CC_RETRY:
                         return vo
@@ -695,6 +696,7 @@ def strTree(droot):
     stree = DFSNode(node, stree)
     return stree
 
-def fakeConflict():
-    for i in range(random.randint(0,1000000)):
-        pass
+def fakeConflict(self):
+    if self.simulate == True:
+        for i in range(random.randint(0,1000000)):
+            pass
