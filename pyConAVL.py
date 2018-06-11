@@ -2,6 +2,11 @@ from graphviz import Digraph
 from IPython.display import Image, display
 import threading
 
+import random
+def fakeConflict():
+    for i in range(random.randint(0,1000000)):
+        pass
+
 UNLINK = -1
 REBALANCE = -2
 NOTHING = -3
@@ -175,9 +180,11 @@ class ConAVL(object):
                                 if not self.__shouldUpdate(func, None, expected):
                                     return False if func == UPDATE_IF_EQ else None
                                 if cmp <= -1:
+                                    fakeConflict()
                                     node.left = Node(key, dval=newValue, parent=node)
                                 else:
                                     # key>holder.key
+                                    fakeConflict()
                                     node.right = Node(key, dval=newValue, parent=node)
 
                                 success = True
@@ -247,6 +254,7 @@ class ConAVL(object):
             # choose the proper child node
             # cnode = holder.getChild(key - holder.key)
             right = holder.right
+            fakeConflict()
             if right is None:
                 # key is not present
                 if not self.__shouldUpdate(func, None, expected):
@@ -261,6 +269,7 @@ class ConAVL(object):
                     self.__waitUntilShrinkCompleted(right, cversion)
                     # and then RETRY
                 elif right is holder.right:
+                    fakeConflict()
                     vo = attemptUpdate(key, func, expected, newValue, holder, right, cversion)
                     if vo != CC_SPECIAL_RETRY:
                         return vo
