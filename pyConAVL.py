@@ -284,7 +284,8 @@ class ConAVL(object):
         if splice is not None:
             splice.parent = parent
 
-        node.version = CC_UNLINKED
+        # node.version = CC_UNLINKED
+        node.version.unlinked = True
         node.val = None
 
         return True
