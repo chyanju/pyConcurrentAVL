@@ -1,8 +1,8 @@
 from graphviz import Digraph
 from IPython.display import Image, display
 import threading
-
 import random
+
 def fakeConflict():
     for i in range(random.randint(0,1000000)):
         pass
@@ -13,21 +13,13 @@ NOTHING = -3
 
 class CC_RETRY(object):
     """
-    Concurrent Control RETRY type
-    usually happen in __getNode when child node version changes
-    and retry can be performed from the same while loop again
-    """
-    pass
-
-class CC_SPECIAL_RETRY(object):
-    """
-    Concurrent Control SPECIAL_RETRY type: read operation failed
+    Concurrent Control RETRY type:
     usually happen in __getNode when parent node version changes
     and retry should be performed from the caller function (with an updated dversion)
     """
     pass
 
-class CC_UNLINKED_OVL(object):
+class CC_UNLINKED(object):
     pass
 
 class ConAVL(object):
@@ -60,7 +52,7 @@ class ConAVL(object):
                 cnode = node.getChild(dirToC)
                 if cnode is None:
                     if node.version != nodeOVL:
-                        return CC_SPECIAL_RETRY
+                        return CC_RETRY
                     return None
                 else:
                     childCmp = key - cnode.key
@@ -70,17 +62,17 @@ class ConAVL(object):
                     if cversion.shrinking or cversion.unlinked:
                         self.__waitUntilShrinkCompleted(cnode, cversion)
                         if node.version != nodeOVL:
-                            return CC_SPECIAL_RETRY
+                            return CC_RETRY
                         # else: RETRY
                     elif cnode is not node.getChild(dirToC):
                         if node.version != nodeOVL:
-                            return CC_SPECIAL_RETRY
+                            return CC_RETRY
                         # else: RETRY
                     else:
                         if node.version != nodeOVL:
-                            return CC_SPECIAL_RETRY
+                            return CC_RETRY
                         vo = attemptGet(self, key, cnode, childCmp, cversion)
-                        if vo != CC_SPECIAL_RETRY:
+                        if vo != CC_RETRY:
                             return vo
                         # else: RETRY
 
@@ -101,7 +93,7 @@ class ConAVL(object):
                 elif right is droot.right:
                     # still the same cnode, not changing
                     vo = attemptGet(self, dkey, right, dkey-right.key, cversion)
-                    if vo != CC_SPECIAL_RETRY:
+                    if vo != CC_RETRY:
                         return vo
                     # else: RETRY
                 else:
@@ -139,7 +131,7 @@ class ConAVL(object):
             while True:
                 child = node.getChild(cmp)
                 if node.version != nodeOVL:
-                    return CC_SPECIAL_RETRY
+                    return CC_RETRY
                 
                 if child is None:
                     # key is not present
@@ -152,7 +144,7 @@ class ConAVL(object):
                         # == ignore damaged 
                         with node.lock:
                             if node.version != nodeOVL:
-                                return CC_SPECIAL_RETRY
+                                return CC_RETRY
                             if node.getChild(cmp) is not None:
                                 # lost a race with a concurrent insert
                                 # must retry in the outer loop
@@ -185,9 +177,9 @@ class ConAVL(object):
                         continue # which is RETRY
                     else:
                         if node.version != nodeOVL:
-                            return CC_SPECIAL_RETRY
+                            return CC_RETRY
                         vo = attemptUpdate(key, newValue, node, child, childOVL)
-                        if vo != CC_SPECIAL_RETRY:
+                        if vo != CC_RETRY:
                             return vo
                         # else: RETRY
            
@@ -205,13 +197,13 @@ class ConAVL(object):
                 # == ignore damage
                 with parent.lock:
                     if parent.version.unlinked or node.parent != parent:
-                        return CC_SPECIAL_RETRY
+                        return CC_RETRY
                     with node.lock:
                         prev = node.val
                         if prev is None:
                             return prev
                         if not self.__attemptUnlink(parent,node):
-                            return CC_SPECIAL_RETRY
+                            return CC_RETRY
                     # == ignore damage
                     damaged = self.__fixHeight(parent)
                 self.__fixHeightAndRebalance(damaged)
@@ -219,11 +211,11 @@ class ConAVL(object):
             else:
                 with node.lock:
                     if node.version.unlinked:
-                        return CC_SPECIAL_RETRY
+                        return CC_RETRY
                     prev = node.val
                     # retry if we now detect that unlink is possible
                     if newValue is None and (node.left is None or node.right is None):
-                        return CC_SPECIAL_RETRY
+                        return CC_RETRY
                     node.val = newValue
                 return prev
             
@@ -246,7 +238,7 @@ class ConAVL(object):
                 elif right is holder.right:
                     fakeConflict()
                     vo = attemptUpdate(key, newValue, holder, right, cversion)
-                    if vo != CC_SPECIAL_RETRY:
+                    if vo != CC_RETRY:
                         return vo
                     # else: RETRY
                 else:
@@ -275,7 +267,7 @@ class ConAVL(object):
         if splice is not None:
             splice.parent = parent
 
-        node.version = CC_UNLINKED_OVL
+        node.version = CC_UNLINKED
         node.val = None
 
         return True
