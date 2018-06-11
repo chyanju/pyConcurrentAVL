@@ -1,2 +1,2 @@
 # pyConcurrentAVL
-Definitely ~~maybe~~ a course project
+**already** ~~Definitely~~ ~~maybe~~ a course project
