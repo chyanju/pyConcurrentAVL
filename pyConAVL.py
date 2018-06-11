@@ -478,7 +478,6 @@ class ConAVL(object):
                     return self.__rebalanceRight(dnode, nR, nRL, hRR0)
 
     def __rebalanceRight(self, nParent, dnode, nL, hR0):
-
         with nL.lock:
             hL = nL.height
             if hL - hR0 <= 1:
@@ -570,8 +569,7 @@ class ConAVL(object):
         if nLRL is not None:
             nLRL.parent = nL
 
-
-        nLR.right = nL
+        nLR.left = nL
         nL.parent = nLR
         nLR.right = dnode
         dnode.parent = nLR
