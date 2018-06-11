@@ -401,7 +401,7 @@ class AVL(object):
             return ddnode
 
     def __buildGraph(self, G, node, color=None):
-        G.node(str(node.key), str(node.key))
+        G.node(str(node.key), str(node.key) + " " + node.val)
         if color is not None:
             G.edge(str(node.parent.key), str(node.key), color=color)
         if node.left is not None:
