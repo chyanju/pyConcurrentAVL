@@ -715,9 +715,7 @@ class Node(object):
         def __init__(self):
             self.unlinked = False
             self.growing = False
-            self.gcnt = 0  # growing count incr
             self.shrinking = False
-            self.scnt = 0  # shrinking count incr
 
         def __eq__(self, other):
             if isinstance(other, self.__class__):
@@ -733,9 +731,9 @@ class Node(object):
         branch<0: return left child, branch>0: return right child
         branch==0: return None
         """
-        if branch<0:
+        if branch < 0:
             return self.left
-        elif branch>0:
+        elif branch > 0:
             return self.right
         else:
             return None
