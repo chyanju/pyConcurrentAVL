@@ -123,11 +123,14 @@ class ConAVL(object):
 
     def __putNode(self, key, newValue, root):
         """
-        TO-UPDATE
+        Can be used to insert, update or remove a node.
         """
         
         # helper function of __putNode
         def attemptInsertIntoEmpty(key, newValue, root):
+            """
+            Inserts when the tree is empty.
+            """
             with root.lock:
                 if root.right is None:
                     root.right = Node(key, newValue, root)
@@ -139,7 +142,9 @@ class ConAVL(object):
         
         # helper function of __putNode
         def attemptUpdate(key, newValue, parent, node, version):
-            # == ignore the assert
+            """
+            Inserts new node or updates old value.
+            """
             cmp = key - node.key
             if cmp == 0:
                 return attemptNodeUpdate(newValue, parent, node)
@@ -167,11 +172,11 @@ class ConAVL(object):
                             else:
                                 if cmp <= -1:
                                     fakeConflict()
-                                    node.left = Node(key, dval=newValue, parent=node)
+                                    node.left = Node(key, val=newValue, parent=node)
                                 else:
                                     # key>root.key
                                     fakeConflict()
-                                    node.right = Node(key, dval=newValue, parent=node)
+                                    node.right = Node(key, val=newValue, parent=node)
 
                                 success = True
                                 damaged = self.__fixHeight(node)
@@ -197,6 +202,9 @@ class ConAVL(object):
            
         # helper function of __putNode
         def attemptNodeUpdate(newValue, parent, node):
+            """
+            Updates node value.
+            """
             if newValue is None:
                 # removal
                 if node.val is None:
@@ -301,9 +309,7 @@ class ConAVL(object):
 
     def __fixHeightAndRebalance(self, node):
         """
-        UNLINK = -1
-        REBALANCE = -2
-        NOTHING = -3
+        Recursively rebalances and fixes the height of nodes, climbing up the three.
         """
         while node is not None and node.parent is not None:
             c = self.__nodeCondition(node)
@@ -326,20 +332,19 @@ class ConAVL(object):
         """
         Attempts to fix the height of a node. Returns the lowest damaged node that the current thread is responsible for or null if no damaged nodes are found.
         """
-
-        c = self.__nodeCondition(node)
-        if c == REBALANCE:
+        cond = self.__nodeCondition(node)
+        if cond == REBALANCE:
             # Need to rebalance
             pass
-        elif c == UNLINK:
+        elif cond == UNLINK:
             # Need to unlink
             return node
-        elif c == NOTHING:
+        elif cond == NOTHING:
             # This thread doesn't need to do anything
             return None
         else:
             # Fix height, return parent which will need fixing next
-            node.height = c
+            node.height = cond
             return node.parent
 
     def __nodeCondition(self, node):
@@ -347,25 +352,25 @@ class ConAVL(object):
         Returns whether a node needs to be fixed (the correct height) or other status codes.
         """
 
-        nL = node.left
-        nR = node.right
+        nodeLeft = node.left
+        nodeRight = node.right
 
-        if (nL is None or nR is None) and node.val is None:
+        if (nodeLeft is None or nodeRight is None) and node.val is None:
             # Need to unlink
             return UNLINK
 
-        hN = node.height
-        hL0 = 0 if nL is None else nL.height
-        hR0 = 0 if nR is None else nR.height
+        heightNode = node.height
+        oldHeightLeft = 0 if nodeLeft is None else nodeLeft.height
+        oldHeightRight = 0 if nodeRight is None else nodeRight.height
 
-        hNRepl = max(hL0, hR0) +1
+        newHeightNode = max(oldHeightLeft, oldHeightRight) +1
 
-        if hL0 - hR0 > 1 or hL0 - hR0 < -1:
+        if oldHeightLeft - oldHeightRight > 1 or oldHeightLeft - oldHeightRight < -1:
             # Need to rebalance
             return REBALANCE
 
         # No action needed
-        return hNRepl if hN != hNRepl else NOTHING
+        return newHeightNode if heightNode != newHeightNode else NOTHING
 
     def __rebalanceNode(self, nParent, node):
         nL = node.left #TODO: See some of the unshared stuff from snaoshot and see if it's necessary
@@ -607,7 +612,7 @@ class ConAVL(object):
         return self.__fixHeight(nParent)
 
     def __buildGraph(self, G, node, color=None):
-        G.node(str(node.key), str(node.key) + " " + str(node.val) + " " +  str(node.height))
+        G.node(str(node.key), str(node.key) + " " + str(node.val), color= 'grey' if node.val is None else 'black')
         if color is not None:
             G.edge(str(node.parent.key), str(node.key), color=color)
         if node.left is not None:
@@ -625,9 +630,9 @@ class ConAVL(object):
             display(Image(G.render()))
     
 class Node(object):
-    def __init__(self, dkey, dval = None, parent=None):
-        self.key = dkey  # comparable, assume int
-        self.val = dval
+    def __init__(self, key, val = None, parent=None):
+        self.key = key  # comparable, assume int
+        self.val = val
         self.height =  1
 
         # Pointers
