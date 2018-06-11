@@ -21,9 +21,6 @@ class CC_RETRY(object):
     """
     pass
 
-class CC_UNLINKED(object):
-    pass
-
 class ConAVL(object):
 
     def __init__(self, simulate=False):
@@ -449,7 +446,7 @@ class ConAVL(object):
         nodeParentLeft = nodeParent.left
         nodeRightLeftLeft = nodeRightLeft.left
         nodeRightLeftRight = nodeRightLeft.right
-        heightRightLeftRight = 0 if nodeRightLeftLeft is None else nodeRightLeftLeft.height
+        heightRightLeftLeft = 0 if nodeRightLeftLeft is None else nodeRightLeftLeft.height
 
         node.version.shrinking = True
         nodeRight.version.shrinking = True
@@ -475,7 +472,7 @@ class ConAVL(object):
         nodeRightLeft.parent = nodeParent
 
         # Fix all the heights
-        newNodeHeight = max(heightRightLeftRight, heightLeft) + 1
+        newNodeHeight = max(heightRightLeftLeft, heightLeft) + 1
         node.height = newNodeHeight
         newNodeRightHeight = max(heightRightRight, heightRightLeftRight) + 1
         nodeRight.height = newNodeRightHeight
@@ -488,7 +485,7 @@ class ConAVL(object):
 
         assert abs(heightRightRight - heightRightLeftRight) <= 1
 
-        if (heightRightLeftRight - heightLeft < -1 or heightRightLeftRight - heightLeft > 1) or ((nodeRightLeftLeft is None or heightLeft == 0) and node.val is None):
+        if (heightRightLeftLeft - heightLeft < -1 or heightRightLeftLeft - heightLeft > 1) or ((nodeRightLeftLeft is None or heightLeft == 0) and node.val is None):
             return node
 
         if (newNodeRightHeight - newNodeHeight < -1 or newNodeRightHeight - newNodeHeight > 1) :
