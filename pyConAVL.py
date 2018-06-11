@@ -482,7 +482,9 @@ class ConAVL(object):
         nodeRightLeft.height = max(newNodeHeight, newNodeRightHeight) + 1
 
         node.version.shrinking = False
+        node.version.number += 1
         nodeRight.version.shrinking = False
+        node.version.number += 1
 
         assert abs(heightRightRight - heightRightLeftRight) <= 1
 
@@ -532,7 +534,9 @@ class ConAVL(object):
         nodeLeftRight.height = max(newNodeHeight, newNodeLeftHeight) + 1
 
         node.version.shrinking = False
+        node.version.number += 1
         nodeLeft.version.shrinking = False
+        nodeLeft.version.number += 1
 
         assert abs(heightLeftLeft - heightLeftRightLeft) <= 1
         assert not ((heightLeftLeft == 0 or nodeLeftRightLeft is None) and nodeLeft.val is None)
@@ -569,6 +573,7 @@ class ConAVL(object):
         nodeRight.height = max(heightRightRight, newNodeHeight) + 1
 
         node.version.shrinking = False
+        node.version.number += 1
 
         if (heightRightLeft - heightRigh < -1 or heightRightLeft - heightRigh > 1) or ((nodeRightLeft is None or heightRigh == 0) and node.val is None):
             return node
@@ -603,6 +608,7 @@ class ConAVL(object):
         nodeLeft.height = max(heightLeftLeft, newNodeHeight) + 1
 
         node.version.shrinking = False
+        node.version.number += 1
 
         if (heightLeftRight - heightRight < -1 or heightLeftRight - heightRight > 1) or (
                 (nodeLeftRight is None or heightRight == 0) and node.val is None):
@@ -651,6 +657,7 @@ class Node(object):
             self.unlinked = False
             self.growing = False
             self.shrinking = False
+            self.number = 0
 
         def __eq__(self, other):
             if isinstance(other, self.__class__):
