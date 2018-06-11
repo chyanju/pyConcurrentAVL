@@ -322,11 +322,11 @@ class ConAVL(object):
                     node = self.__fixHeight(node)
 
             else:
-                nParent = node.parent
-                with nParent.lock:
-                    if nParent.version.unlinked == False and node.parent == nParent:
+                nodeParent = node.parent
+                with nodeParent.lock:
+                    if nodeParent.version.unlinked == False and node.parent == nodeParent:
                         with node.lock:
-                            node = self.__rebalanceNode(nParent, node)
+                            node = self.__rebalanceNode(nodeParent, node)
 
     def __fixHeight(self, node):
         """
@@ -372,244 +372,244 @@ class ConAVL(object):
         # No action needed
         return newHeightNode if heightNode != newHeightNode else NOTHING
 
-    def __rebalanceNode(self, nParent, node):
-        nL = node.left #TODO: See some of the unshared stuff from snaoshot and see if it's necessary
-        nR = node.right
-        if (nL is None or nR is None) and node.val is None:
-            if self.__attemptUnlink(nParent, node):
+    def __rebalanceNode(self, nodeParent, node):
+        nodeRight = node.left
+        nodeLeft = node.right
+        if (nodeRight is None or nodeLeft is None) and node.val is None:
+            if self.__attemptUnlink(nodeParent, node):
                 # fix parent height
-                return self.__fixHeight(nParent)
+                return self.__fixHeight(nodeParent)
             return node
-        hN = node.height
-        hL0 = 0 if nL is None else nL.height
-        hR0 = 0 if nR is None else nR.height
+        heightNode = node.height
+        oldHeightLeft = 0 if nodeRight is None else nodeRight.height
+        oldHeightRight = 0 if nodeLeft is None else nodeLeft.height
 
-        hNRepl = max(hL0, hR0) +1
-        if hL0 - hR0 < -1:
-            return self.__rebalanceLeft(nParent, node, nR, hL0)
-        elif hL0 - hR0 > 1:
-            return self.__rebalanceRight(nParent, node, nL, hR0)
-        elif hN == hNRepl:
+        newHeightNode = max(oldHeightLeft, oldHeightRight) +1
+        if oldHeightLeft - oldHeightRight < -1:
+            return self.__rebalanceLeft(nodeParent, node, nodeLeft, oldHeightLeft)
+        elif oldHeightLeft - oldHeightRight > 1:
+            return self.__rebalanceRight(nodeParent, node, nodeRight, oldHeightRight)
+        elif heightNode == newHeightNode:
             return None
         else:
             # fix height and fix the parent
-            node.height = hNRepl
-            return self.__fixHeight(nParent)
+            node.height = newHeightNode
+            return self.__fixHeight(nodeParent)
 
-    def __rebalanceLeft(self, nParent, node, nR, hL0):
-        with nR.lock:
-            hR = nR.height
-            if hL0 - hR >= -1:
+    def __rebalanceLeft(self, nodeParent, node, nodeRight, oldHeightLeft):
+        with nodeRight.lock:
+            heightRight = nodeRight.height
+            if oldHeightLeft - heightRight >= -1:
                 # retry
                 return node
             else:
-                nRL = nR.left #todo: see unshared again
-                hRL0 = 0 if nRL is None else nRL.height
-                hRR0 = 0 if nR.right is None else nR.right.height
-                if hRR0 >= hRL0:
-                    return self.__rotateLeft(nParent, node, hL0, nR, nRL, hRL0, hRR0)
+                nodeRightLeft = nodeRight.left
+                oldHeightRightLeft = 0 if nodeRightLeft is None else nodeRightLeft.height
+                oldHeightRightRight = 0 if nodeRight.right is None else nodeRight.right.height
+                if oldHeightRightRight >= oldHeightRightLeft:
+                    return self.__rotateLeft(nodeParent, node, oldHeightLeft, nodeRight, nodeRightLeft, oldHeightRightLeft, oldHeightRightRight)
                 else:
-                    with nRL.lock:
-                        hRL = nRL.height
-                        if hRR0 >= hRL:
-                            return self.__rotateLeft(nParent, node, hL0, nR, nRL, hRL, hRR0)
+                    with nodeRightLeft.lock:
+                        heightRightLeft = nodeRightLeft.height
+                        if oldHeightRightRight >= heightRightLeft:
+                            return self.__rotateLeft(nodeParent, node, oldHeightLeft, nodeRight, nodeRightLeft, heightRightLeft, oldHeightRightRight)
                         else:
-                            hRLR = 0 if nRL.right is None else nRL.right.height
-                            if (hRR0 - hRLR >= -1 and  hRR0 - hRLR <= 1)and not ((hRR0 == 0 or hRLR == 0) and nR.val is None):
-                                return self.__rotateLeftOverRight(nParent, node, hL0, nR, nRL, hRR0, hRLR)
-                    return self.__rebalanceRight(node, nR, nRL, hRR0)
+                            heightRightLeftRight = 0 if nodeRightLeft.right is None else nodeRightLeft.right.height
+                            if (oldHeightRightRight - heightRightLeftRight >= -1 and  oldHeightRightRight - heightRightLeftRight <= 1)and not ((oldHeightRightRight == 0 or heightRightLeftRight == 0) and nodeRight.val is None):
+                                return self.__rotateLeftOverRight(nodeParent, node, oldHeightLeft, nodeRight, nodeRightLeft, oldHeightRightRight, heightRightLeftRight)
+                    return self.__rebalanceRight(node, nodeRight, nodeRightLeft, oldHeightRightRight)
 
-    def __rebalanceRight(self, nParent, node, nL, hR0):
-        with nL.lock:
-            hL = nL.height
-            if hL - hR0 <= 1:
+    def __rebalanceRight(self, nodeParent, node, nodeLeft, oldHeightRight):
+        with nodeLeft.lock:
+            heightLeft = nodeLeft.height
+            if heightLeft - oldHeightRight <= 1:
                 #retry
                 return node
             else:
-                nLR = nL.right  # todo: see unshared again
-                hLR0 = 0 if nLR is None else nLR.height
-                hLL0 = 0 if nL.left is None else nL.left.height
-                if hLL0 >= hLR0:
-                    return self.__rotateRight(nParent, node, hR0, nL,  nLR, hLR0, hLL0)
+                nodeLeftRight = nodeLeft.right
+                oldHeightLeftRight = 0 if nodeLeftRight is None else nodeLeftRight.height
+                oldHeightLeftLeft = 0 if nodeLeft.left is None else nodeLeft.left.height
+                if oldHeightLeftLeft >= oldHeightLeftRight:
+                    return self.__rotateRight(nodeParent, node, oldHeightRight, nodeLeft, nodeLeftRight, oldHeightLeftRight, oldHeightLeftLeft)
                 else:
-                    with nLR.lock:
-                        hLR = nLR.height
-                        if hLL0 >= hLR:
-                            return self.__rotateRight(nParent, node, hR0, nL, nLR, hLR, hLL0)
+                    with nodeLeftRight.lock:
+                        heightLeftRight = nodeLeftRight.height
+                        if oldHeightLeftLeft >= heightLeftRight:
+                            return self.__rotateRight(nodeParent, node, oldHeightRight, nodeLeft, nodeLeftRight, heightLeftRight, oldHeightLeftLeft)
                         else:
-                            hLRL = 0 if nLR.left is None else nLR.left.height
-                            if (hLL0 - hLRL >= -1 and hLL0 - hLRL <= 1) and not ((hLL0 == 0 or hLRL == 0) and nL.val is None):
-                                return self.__rotateRightOverLeft(nParent, node, hR0, nL, nLR, hLL0, hLRL)
-                    return self.__rebalanceLeft(node, nL, nLR, hLL0)
+                            heightLeftRightLeft = 0 if nodeLeftRight.left is None else nodeLeftRight.left.height
+                            if (oldHeightLeftLeft - heightLeftRightLeft >= -1 and oldHeightLeftLeft - heightLeftRightLeft <= 1) and not ((oldHeightLeftLeft == 0 or heightLeftRightLeft == 0) and nodeLeft.val is None):
+                                return self.__rotateRightOverLeft(nodeParent, node, oldHeightRight, nodeLeft, nodeLeftRight, oldHeightLeftLeft, heightLeftRightLeft)
+                    return self.__rebalanceLeft(node, nodeLeft, nodeLeftRight, oldHeightLeftLeft)
 
-    def __rotateLeftOverRight(self, nParent, node, hL, nR, nRL, hRR, hRLR):
+    def __rotateLeftOverRight(self, nodeParent, node, heightLeft, nodeRight, nodeRightLeft, heightRightRight, heightRightLeftRight):
 
-        nPL = nParent.left
-        nRLL = nRL.left
-        nRLR = nRL.right
-        hRLL = 0 if nRLL is None else nRLL.height
+        nodeParentLeft = nodeParent.left
+        nodeRightLeftLeft = nodeRightLeft.left
+        nodeRightLeftRight = nodeRightLeft.right
+        heightRightLeftRight = 0 if nodeRightLeftLeft is None else nodeRightLeftLeft.height
 
         node.version.shrinking = True
-        nR.version.shrinking = True
+        nodeRight.version.shrinking = True
 
         # Fix all the pointers
-        node.right = nRLL
-        if nRLL is not None:
-            nRLL.parent = node
+        node.right = nodeRightLeftLeft
+        if nodeRightLeftLeft is not None:
+            nodeRightLeftLeft.parent = node
 
-        nR.left = nRLR
-        if nRLR is not None:
-            nRLR.parent = nR
+        nodeRight.left = nodeRightLeftRight
+        if nodeRightLeftRight is not None:
+            nodeRightLeftRight.parent = nodeRight
 
-        nRL.right = nR
-        nR.parent = nRL
-        nRL.left = node
-        node.parent = nRL
+        nodeRightLeft.right = nodeRight
+        nodeRight.parent = nodeRightLeft
+        nodeRightLeft.left = node
+        node.parent = nodeRightLeft
 
-        if nPL != node:
-            nParent.right = nRL
+        if nodeParentLeft != node:
+            nodeParent.right = nodeRightLeft
         else:
-            nParent.left = nRL
-        nRL.parent = nParent
+            nodeParent.left = nodeRightLeft
+        nodeRightLeft.parent = nodeParent
 
         # Fix all the heights
-        hNRepl = max(hRLL, hL) +1
-        node.height = hNRepl
-        hRRepl = max(hRR, hRLR) +1
-        nR.height = hRRepl
-        nRL.height = max(hNRepl, hRRepl) + 1
+        newNodeHeight = max(heightRightLeftRight, heightLeft) + 1
+        node.height = newNodeHeight
+        newNodeRightHeight = max(heightRightRight, heightRightLeftRight) + 1
+        nodeRight.height = newNodeRightHeight
+        nodeRightLeft.height = max(newNodeHeight, newNodeRightHeight) + 1
 
         node.version.shrinking = False
-        nR.version.shrinking = False
+        nodeRight.version.shrinking = False
 
-        assert abs(hRR-hRLR) <= 1
+        assert abs(heightRightRight - heightRightLeftRight) <= 1
 
-        if (hRLL - hL < -1 or hRLL - hL > 1) or ((nRLL is None or hL == 0) and node.val is None):
+        if (heightRightLeftRight - heightLeft < -1 or heightRightLeftRight - heightLeft > 1) or ((nodeRightLeftLeft is None or heightLeft == 0) and node.val is None):
             return node
 
-        if (hRRepl - hNRepl < -1 or hRRepl - hNRepl > 1) :
-            return nRL
-        return self.__fixHeight(nParent)
+        if (newNodeRightHeight - newNodeHeight < -1 or newNodeRightHeight - newNodeHeight > 1) :
+            return nodeRightLeft
+        return self.__fixHeight(nodeParent)
 
-    def __rotateRightOverLeft(self, nParent, node, hR, nL, nLR, hLL, hLRL):
+    def __rotateRightOverLeft(self, nodeParent, node, heightRight, nodeLeft, nodeLeftRight, heightLeftLeft, heightLeftRightLeft):
 
-        nPL = nParent.left
-        nLRL = nLR.left
-        nLRR = nLR.right
-        hLRR = 0 if nLRR is None else nLRR.height
+        nodeParentLeft = nodeParent.left
+        nodeLeftRightLeft = nodeLeftRight.left
+        nodeLeftRightRight = nodeLeftRight.right
+        heightLeftRightRight = 0 if nodeLeftRightRight is None else nodeLeftRightRight.height
 
         node.version.shrinking = True
-        nL.version.shrinking = True
+        nodeLeft.version.shrinking = True
 
         # Fix all the pointers
 
-        node.left = nLRR
-        if nLRR is not None:
-            nLRR.parent = node
+        node.left = nodeLeftRightRight
+        if nodeLeftRightRight is not None:
+            nodeLeftRightRight.parent = node
 
-        nL.right = nLRL
-        if nLRL is not None:
-            nLRL.parent = nL
+        nodeLeft.right = nodeLeftRightLeft
+        if nodeLeftRightLeft is not None:
+            nodeLeftRightLeft.parent = nodeLeft
 
-        nLR.left = nL
-        nL.parent = nLR
-        nLR.right = node
-        node.parent = nLR
+        nodeLeftRight.left = nodeLeft
+        nodeLeft.parent = nodeLeftRight
+        nodeLeftRight.right = node
+        node.parent = nodeLeftRight
 
-        if nPL != node:
-            nParent.right = nLR
+        if nodeParentLeft != node:
+            nodeParent.right = nodeLeftRight
         else:
-            nParent.left = nLR
-        nLR.parent = nParent
+            nodeParent.left = nodeLeftRight
+        nodeLeftRight.parent = nodeParent
 
         # Fix all the heights
-        hNRepl = max(hLRR, hR) + 1
-        node.height = hNRepl
-        hLRepl = max(hLL, hLRL) + 1
-        nL.height = hLRepl
-        nLR.height = max(hNRepl, hLRepl) + 1
+        newNodeHeight = max(heightLeftRightRight, heightRight) + 1
+        node.height = newNodeHeight
+        newNodeLeftHeight = max(heightLeftLeft, heightLeftRightLeft) + 1
+        nodeLeft.height = newNodeLeftHeight
+        nodeLeftRight.height = max(newNodeHeight, newNodeLeftHeight) + 1
 
         node.version.shrinking = False
-        nL.version.shrinking = False
+        nodeLeft.version.shrinking = False
 
-        assert abs(hLL - hLRL) <= 1
-        assert not ((hLL == 0 or nLRL is None) and nL.val is None)
+        assert abs(heightLeftLeft - heightLeftRightLeft) <= 1
+        assert not ((heightLeftLeft == 0 or nodeLeftRightLeft is None) and nodeLeft.val is None)
 
-        if (hLRR - hR < -1 or hLRR - hR > 1) or ((nLRR is None or hR == 0) and node.val is None):
+        if (heightLeftRightRight - heightRight < -1 or heightLeftRightRight - heightRight > 1) or ((nodeLeftRightRight is None or heightRight == 0) and node.val is None):
             return node
 
-        if (hLRepl - hNRepl < -1 or hLRepl - hNRepl > 1) :
-            return nLR
-        return self.__fixHeight(nParent)
+        if (newNodeLeftHeight - newNodeHeight < -1 or newNodeLeftHeight - newNodeHeight > 1) :
+            return nodeLeftRight
+        return self.__fixHeight(nodeParent)
 
-    def __rotateLeft(self, nParent, node, hL, nR, nRL, hRL, hRR):
-        nPL = nParent.left # sibling or itself
+    def __rotateLeft(self, nodeParent, node, heightRigh, nodeRight, nodeRightLeft, heightRightLeft, heightRightRight):
+        nodeParentLeft = nodeParent.left # sibling or itself
 
         node.version.shrinking = True
 
         # Fix all the pointers
-        node.right = nRL
-        if nRL is not None:
-            nRL.parent = node
+        node.right = nodeRightLeft
+        if nodeRightLeft is not None:
+            nodeRightLeft.parent = node
 
-        nR.left = node
-        node.parent = nR
+        nodeRight.left = node
+        node.parent = nodeRight
 
-        if nPL is node:
-            nParent.left = nR
+        if nodeParentLeft is node:
+            nodeParent.left = nodeRight
         else:
-            nParent.right = nR
-        nR.parent = nParent
+            nodeParent.right = nodeRight
+        nodeRight.parent = nodeParent
 
         # Fix the heights
-        hNRepl = max(hL, hRL) + 1
-        node.height = hNRepl
-        nR.height = max(hRR, hNRepl) + 1
+        newNodeHeight = max(heightRigh, heightRightLeft) + 1
+        node.height = newNodeHeight
+        nodeRight.height = max(heightRightRight, newNodeHeight) + 1
 
         node.version.shrinking = False
 
-        if (hRL - hL < -1 or hRL - hL > 1) or ((nRL is None or hL == 0) and node.val is None): #TODO: Why do we check for val is None?
+        if (heightRightLeft - heightRigh < -1 or heightRightLeft - heightRigh > 1) or ((nodeRightLeft is None or heightRigh == 0) and node.val is None):
             return node
 
-        if (hRR - hNRepl< -1 or hRR - hNRepl > 1) or (hRR == 0 and nR.val is None):
-            return nR
+        if (heightRightRight - newNodeHeight< -1 or heightRightRight - newNodeHeight > 1) or (heightRightRight == 0 and nodeRight.val is None):
+            return nodeRight
 
-        return self.__fixHeight(nParent)
+        return self.__fixHeight(nodeParent)
 
-    def __rotateRight(self, nParent, node, hR, nL, nLR, hLR, hLL):
-        nPL = nParent.left  # sibling or itself
+    def __rotateRight(self, nodeParent, node, heightRight, nodeLeft, nodeLeftRight, heightLeftRight, heightLeftLeft):
+        nodeParentLeft = nodeParent.left  # sibling or itself
 
         node.version.shrinking = True
 
         # Fix all the pointers
-        node.left = nLR
-        if nLR is not None:
-            nLR.parent = node
+        node.left = nodeLeftRight
+        if nodeLeftRight is not None:
+            nodeLeftRight.parent = node
 
-        nL.right = node
-        node.parent = nL
+        nodeLeft.right = node
+        node.parent = nodeLeft
 
-        if nPL is node:
-            nParent.left = nL
+        if nodeParentLeft is node:
+            nodeParent.left = nodeLeft
         else:
-            nParent.right = nL
-        nL.parent = nParent
+            nodeParent.right = nodeLeft
+        nodeLeft.parent = nodeParent
 
         # Fix the heights
-        hNRepl = max(hR, hLR) + 1
-        node.height = hNRepl
-        nL.height = max(hLL, hNRepl) + 1
+        newNodeHeight = max(heightRight, heightLeftRight) + 1
+        node.height = newNodeHeight
+        nodeLeft.height = max(heightLeftLeft, newNodeHeight) + 1
 
         node.version.shrinking = False
 
-        if (hLR - hR < -1 or hLR - hR > 1) or (
-                (nLR is None or hR == 0) and node.val is None):  # TODO: Why do we check for val is None?
+        if (heightLeftRight - heightRight < -1 or heightLeftRight - heightRight > 1) or (
+                (nodeLeftRight is None or heightRight == 0) and node.val is None):
             return node
 
-        if (hLL - hNRepl < -1 or hLL - hNRepl > 1) or (hLL == 0 and nL.val is None):
-            return nL
+        if (heightLeftLeft - newNodeHeight < -1 or heightLeftLeft - newNodeHeight > 1) or (heightLeftLeft == 0 and nodeLeft.val is None):
+            return nodeLeft
 
-        return self.__fixHeight(nParent)
+        return self.__fixHeight(nodeParent)
 
     def __buildGraph(self, G, node, color=None):
         G.node(str(node.key), str(node.key) + " " + str(node.val), color= 'grey' if node.val is None else 'black')
