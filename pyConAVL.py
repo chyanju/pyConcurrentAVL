@@ -11,11 +11,6 @@ UNLINK = -1
 REBALANCE = -2
 NOTHING = -3
 
-UPDATE_ALWAYS = 0
-UPDATE_IF_ABSENT = 1
-UPDATE_IF_PRESENT = 2
-UPDATE_IF_EQ = 3
-
 class CC_RETRY(object):
     """
     Concurrent Control RETRY type
@@ -43,7 +38,7 @@ class ConAVL(object):
         return self.__getNode(self.root, dkey)
 
     def put(self, dkey, dval = None):
-        self.__putNode(dkey, UPDATE_ALWAYS, None, str(dkey) if dval is None else dval, self.root) #TODO: what the hell is this holder thing?
+        self.__putNode(dkey, str(dkey) if dval is None else dval, self.root)
 
     def min(self):
         return self.__getMinNode(self.root)
@@ -52,7 +47,7 @@ class ConAVL(object):
         return self.__getMaxNode(self.root)
 
     def remove(self, dkey):
-        self.__putNode(dkey, UPDATE_ALWAYS, None, None, self.root)
+        self.__putNode(dkey, None, self.root)
 
     def print(self):
         self.__prettyPrintTree(self.root)
@@ -124,7 +119,7 @@ class ConAVL(object):
     # k -> /: k is a comparable version of key
     ## right -> cnode: child node
     ## ovl -> cversion: child version
-    def __putNode(self, key, func, expected, newValue, holder):
+    def __putNode(self, key, newValue, holder):
         """
         TO-UPDATE
         """
@@ -147,11 +142,11 @@ class ConAVL(object):
             return result
         
         # helper function of __putNode
-        def attemptUpdate(key, func, expected, newValue, parent, node, nodeOVL):
+        def attemptUpdate(key, newValue, parent, node, nodeOVL):
             # == ignore the assert
             cmp = key - node.key
             if cmp == 0:
-                return attemptNodeUpdate(func, expected, newValue, parent, node)
+                return attemptNodeUpdate(newValue, parent, node)
             while True:
                 child = node.getChild(cmp)
                 if node.version != nodeOVL:
@@ -177,8 +172,6 @@ class ConAVL(object):
                                 # == ignore damage
                                 # will RETRY
                             else:
-                                if not self.__shouldUpdate(func, None, expected):
-                                    return False if func == UPDATE_IF_EQ else None
                                 if cmp <= -1:
                                     fakeConflict()
                                     node.left = Node(key, dval=newValue, parent=node)
@@ -192,7 +185,7 @@ class ConAVL(object):
 
                         if success == True:
                             self.__fixHeightAndRebalance(damaged)
-                            return True if func == UPDATE_IF_EQ else None
+                            return None
                         # else: RETRY
                 else:
                     childOVL = child.version
@@ -204,13 +197,13 @@ class ConAVL(object):
                     else:
                         if node.version != nodeOVL:
                             return CC_SPECIAL_RETRY
-                        vo = attemptUpdate(key, func, expected, newValue, node, child, childOVL)
+                        vo = attemptUpdate(key, newValue, node, child, childOVL)
                         if vo != CC_SPECIAL_RETRY:
                             return vo
                         # else: RETRY
            
         # helper function of __putNode
-        def attemptNodeUpdate(func, expected, newValue, parent, node):
+        def attemptNodeUpdate(newValue, parent, node):
             if newValue is None:
                 # removal
                 if node.val is None:
@@ -226,28 +219,24 @@ class ConAVL(object):
                         return CC_SPECIAL_RETRY
                     with node.lock:
                         prev = node.val
-                        if not self.__shouldUpdate(func, prev, expected):
-                            return False if func == UPDATE_IF_EQ else prev
                         if prev is None:
-                            return True if func == UPDATE_IF_EQ else prev
+                            return prev
                         if not self.__attemptUnlink(parent,node):
                             return CC_SPECIAL_RETRY
                     # == ignore damage
                     damaged = self.__fixHeight(parent)
                 self.__fixHeightAndRebalance(damaged)
-                return True if func == UPDATE_IF_EQ else prev
+                return prev
             else:
                 with node.lock:
                     if node.version.unlinked:
                         return CC_SPECIAL_RETRY
                     prev = node.val
-                    if not self.__shouldUpdate(func, prev, expected):
-                        return False if func == UPDATE_IF_EQ else prev
                     # retry if we now detect that unlink is possible
                     if newValue is None and (node.left is None or node.right is None):
                         return CC_SPECIAL_RETRY
                     node.val = newValue
-                return True if func == UPDATE_IF_EQ else prev
+                return prev
             
         # =============================================================================
         while True:
@@ -257,11 +246,8 @@ class ConAVL(object):
             fakeConflict()
             if right is None:
                 # key is not present
-                if not self.__shouldUpdate(func, None, expected):
-                    # None means the value does not exist
-                    return False if func == UPDATE_IF_EQ else None
                 if newValue is None or attemptInsertIntoEmpty(key, newValue, holder):
-                    return True if func == UPDATE_IF_EQ else None
+                    return None
                 # else: RETRY
             else:
                 cversion = right.version
@@ -270,7 +256,7 @@ class ConAVL(object):
                     # and then RETRY
                 elif right is holder.right:
                     fakeConflict()
-                    vo = attemptUpdate(key, func, expected, newValue, holder, right, cversion)
+                    vo = attemptUpdate(key, newValue, holder, right, cversion)
                     if vo != CC_SPECIAL_RETRY:
                         return vo
                     # else: RETRY
@@ -304,26 +290,6 @@ class ConAVL(object):
         node.val = None
 
         return True
-    
-    def __shouldUpdate(self, func, prev, expected):
-        """
-        prev: value type
-        expexted: value type
-        """
-        if func == UPDATE_ALWAYS:
-            return True
-        elif func == UPDATE_IF_ABSENT:
-            # None here means the value does not exist, compared to CC_NULL which means to be removed
-            return prev is None
-        elif func == UPDATE_IF_PRESENT:
-            # None here means the value does not exist, compared to CC_NULL which means to be removed
-            return prev is not None
-        else: # UPDATE_IF_EQ
-            # == ignore assert
-            if prev is None:
-                return False
-            # == AllowNullValues is False, ignore related codes
-            return prev == expected
     
     def __waitUntilShrinkCompleted(self, dnode, dversion):
         """
