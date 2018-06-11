@@ -1,11 +1,13 @@
+# Concurrent AVL tree implemented by Gabriel Siqueira and Yanju Chen from the University of California, Santa Barbara
+# Implementation based on the paper A Practical Concurrent Binary Search Tree by Nathan Bronson
+# Reference: https://ppl.stanford.edu/papers/ppopp207-bronson.pdf
+
 from graphviz import Digraph
 from IPython.display import Image, display
 import threading
 import random
 
-def fakeConflict():
-    for i in range(random.randint(0,1000000)):
-        pass
+# Node condition codes
 
 UNLINK = -1
 REBALANCE = -2
@@ -23,76 +25,95 @@ class CC_UNLINKED(object):
     pass
 
 class ConAVL(object):
+
     def __init__(self):
+        """
+        Initializes the ConAVL object. The root is set as an empty node. root.right will point to the actual root.
+        """
         self.root = Node(None)
 
-    def get(self, dkey):
-        return self.__getNode(self.root, dkey)
+    def get(self, key):
+        """
+        Returns the value of the node with corresponding key.
+        """
+        return self.__getNode(self.root, key)
 
-    def put(self, dkey, dval = None):
-        self.__putNode(dkey, str(dkey) if dval is None else dval, self.root)
+    def put(self, key, val = None):
+        """
+        This method can be used in three ways:
+        When only key is sent, and key is unique, it creates a new node where the value equals the key
+        When key and value are sent and key is unique, it creates a new node with given key and given value
+        When key and value are sent and key is already present, it updates the node with given key to the given value
+        """
+        self.__putNode(key, str(key) if val is None else val, self.root)
 
     def remove(self, dkey):
+        """
+        Removes the node with given key. The actual node might not be deleted from the tree. (see reference paper)
+        """
         self.__putNode(dkey, None, self.root)
 
     def print(self):
+        """
+        Prints the underlying tree in a nice way.
+        """
         self.__prettyPrintTree(self.root)
         
     def __str__(self):
+        """
+        Returns string representation of the tree.
+        """
         return strTree(self.root.right)
 
-    def __getNode(self, droot, dkey):
+    def __getNode(self, root, key):
         """
-        if dkey presents, return the value,
+        If key is present, return the value,
         otherwise, return None
         """
 
-        def attemptGet(self, key, node, dirToC, nodeOVL):
+        def attemptGet(self, key, node, dir, version):
             while True:
-                cnode = node.getChild(dirToC)
+                cnode = node.getChild(dir)
                 if cnode is None:
-                    if node.version != nodeOVL:
+                    if node.version != version:
                         return CC_RETRY
                     return None
                 else:
-                    childCmp = key - cnode.key
-                    if childCmp == 0:
+                    if key - cnode.key == 0:
                         return cnode.val
                     cversion = cnode.version
                     if cversion.shrinking or cversion.unlinked:
                         self.__waitUntilShrinkCompleted(cnode, cversion)
-                        if node.version != nodeOVL:
+                        if node.version != version:
                             return CC_RETRY
                         # else: RETRY
-                    elif cnode is not node.getChild(dirToC):
-                        if node.version != nodeOVL:
+                    elif cnode is not node.getChild(dir):
+                        if node.version != version:
                             return CC_RETRY
                         # else: RETRY
                     else:
-                        if node.version != nodeOVL:
+                        if node.version != version:
                             return CC_RETRY
-                        vo = attemptGet(self, key, cnode, childCmp, cversion)
+                        vo = attemptGet(self, key, cnode, key - cnode.key, cversion)
                         if vo != CC_RETRY:
                             return vo
                         # else: RETRY
 
-                    
         while True:
-            right = droot.right
+            right = root.right
             if right is None:
                 return None
             else:
-                cmp = dkey - right.key
-                if cmp == 0:
+                if key - right.key == 0:
                     return right.val
                 cversion = right.version
                 if cversion.shrinking or cversion.unlinked:
                     self.__waitUntilShrinkCompleted(right, cversion)
                     # and then RETRY
                     continue
-                elif right is droot.right:
+                elif right is root.right:
                     # still the same cnode, not changing
-                    vo = attemptGet(self, dkey, right, dkey-right.key, cversion)
+                    vo = attemptGet(self, key, right, key - right.key, cversion)
                     if vo != CC_RETRY:
                         return vo
                     # else: RETRY
@@ -100,37 +121,31 @@ class ConAVL(object):
                     # RETRY
                     continue
 
-    def __putNode(self, key, newValue, holder):
+    def __putNode(self, key, newValue, root):
         """
         TO-UPDATE
         """
         
         # helper function of __putNode
-        def attemptInsertIntoEmpty(key, vOpt, holder):
-            result = None # should be set to True or False when return
-            with holder.lock:
-                # cnode = holder.getChild(key - holder.key) # lock before get, looks good
-                if holder.right is None:
-                    # if key<holder.key:
-                    #     holder.left = Node(key, vOpt, holder)
-                    # else:
-                    #     # key>holder.key
-                    holder.right = Node(key, vOpt, holder)
-                    holder.height = 2
+        def attemptInsertIntoEmpty(key, newValue, root):
+            with root.lock:
+                if root.right is None:
+                    root.right = Node(key, newValue, root)
+                    root.height = 2
                     result = True
                 else:
                     result = False
             return result
         
         # helper function of __putNode
-        def attemptUpdate(key, newValue, parent, node, nodeOVL):
+        def attemptUpdate(key, newValue, parent, node, version):
             # == ignore the assert
             cmp = key - node.key
             if cmp == 0:
                 return attemptNodeUpdate(newValue, parent, node)
             while True:
                 child = node.getChild(cmp)
-                if node.version != nodeOVL:
+                if node.version != version:
                     return CC_RETRY
                 
                 if child is None:
@@ -140,24 +155,21 @@ class ConAVL(object):
                         return None
                     else:
                         # update will be an insert
-                        success = False
-                        # == ignore damaged 
                         with node.lock:
-                            if node.version != nodeOVL:
+                            if node.version != version:
                                 return CC_RETRY
                             if node.getChild(cmp) is not None:
                                 # lost a race with a concurrent insert
                                 # must retry in the outer loop
                                 success = False
                                 damaged = None
-                                # == ignore damage
                                 # will RETRY
                             else:
                                 if cmp <= -1:
                                     fakeConflict()
                                     node.left = Node(key, dval=newValue, parent=node)
                                 else:
-                                    # key>holder.key
+                                    # key>root.key
                                     fakeConflict()
                                     node.right = Node(key, dval=newValue, parent=node)
 
@@ -169,16 +181,16 @@ class ConAVL(object):
                             return None
                         # else: RETRY
                 else:
-                    childOVL = child.version
-                    if childOVL.shrinking or childOVL.unlinked:
-                        self.__waitUntilShrinkCompleted(child, childOVL)
+                    cversion = child.version
+                    if cversion.shrinking or cversion.unlinked:
+                        self.__waitUntilShrinkCompleted(child, cversion)
                         # and then RETRY
                     elif child is not node.getChild(cmp):
                         continue # which is RETRY
                     else:
-                        if node.version != nodeOVL:
+                        if node.version != version:
                             return CC_RETRY
-                        vo = attemptUpdate(key, newValue, node, child, childOVL)
+                        vo = attemptUpdate(key, newValue, node, child, cversion)
                         if vo != CC_RETRY:
                             return vo
                         # else: RETRY
@@ -193,8 +205,6 @@ class ConAVL(object):
             
             if newValue is None and (node.left is None or node.right is None):
                 # potential unlink, get ready by locking the parent
-                # == ignore prev
-                # == ignore damage
                 with parent.lock:
                     if parent.version.unlinked or node.parent != parent:
                         return CC_RETRY
@@ -202,9 +212,8 @@ class ConAVL(object):
                         prev = node.val
                         if prev is None:
                             return prev
-                        if not self.__attemptUnlink(parent,node):
+                        if not self.__attemptUnlink(parent, node):
                             return CC_RETRY
-                    # == ignore damage
                     damaged = self.__fixHeight(parent)
                 self.__fixHeightAndRebalance(damaged)
                 return prev
@@ -221,13 +230,11 @@ class ConAVL(object):
             
         # =============================================================================
         while True:
-            # choose the proper child node
-            # cnode = holder.getChild(key - holder.key)
-            right = holder.right
+            right = root.right
             fakeConflict()
             if right is None:
                 # key is not present
-                if newValue is None or attemptInsertIntoEmpty(key, newValue, holder):
+                if newValue is None or attemptInsertIntoEmpty(key, newValue, root):
                     return None
                 # else: RETRY
             else:
@@ -235,9 +242,9 @@ class ConAVL(object):
                 if cversion.shrinking or cversion.unlinked:
                     self.__waitUntilShrinkCompleted(right, cversion)
                     # and then RETRY
-                elif right is holder.right:
+                elif right is root.right:
                     fakeConflict()
-                    vo = attemptUpdate(key, newValue, holder, right, cversion)
+                    vo = attemptUpdate(key, newValue, root, right, cversion)
                     if vo != CC_RETRY:
                         return vo
                     # else: RETRY
@@ -245,14 +252,15 @@ class ConAVL(object):
                     continue # RETRY
         
     def __attemptUnlink(self, parent, node):
-        # == ignore assert
+        """
+        Tries to unlink a node that should have already been removed.
+        """
         parentL = parent.left
         parentR = parent.right
         if parentL != node and parentR != node:
             # node is no longer a child of parent
             return False
 
-        # == ignore assert
         left = node.left
         right = node.right
         if (left is not None) and (right is not None):
@@ -272,81 +280,81 @@ class ConAVL(object):
 
         return True
     
-    def __waitUntilShrinkCompleted(self, dnode, dversion):
+    def __waitUntilShrinkCompleted(self, node, version):
         """
-        wait for lock to release, dversion is the version before waiting
+        Waits for lock to be released.
         """
-        if not dversion.shrinking:
+        if not version.shrinking:
             # version changed
             return
-        # spin
-        scnt = 100
-        for i in range(scnt):
-            if dnode.version != dversion:
+
+        # Makes it wait for a while
+        for i in range(100):
+            if node.version != version:
                 return
 
-        dnode.lock.acquire()
-        dnode.lock.release()
+        node.lock.acquire()
+        node.lock.release()
 
-        assert dnode.version != dversion
+        assert node.version != version
         return
 
-    def __fixHeightAndRebalance(self, dnode):
+    def __fixHeightAndRebalance(self, node):
         """
         UNLINK = -1
         REBALANCE = -2
         NOTHING = -3
         """
-        while dnode is not None and dnode.parent is not None:
-            c = self.__nodeCondition(dnode)
-            if c == NOTHING or dnode.version.unlinked == True:
+        while node is not None and node.parent is not None:
+            c = self.__nodeCondition(node)
+            if c == NOTHING or node.version.unlinked == True:
                 # node is fine, or node isn't repairable
                 return
 
             if c is not UNLINK and c is not REBALANCE:
-                with dnode.lock:
-                    dnode = self.__fixHeight(dnode)
+                with node.lock:
+                    node = self.__fixHeight(node)
 
             else:
-                nParent = dnode.parent
+                nParent = node.parent
                 with nParent.lock:
-                    if nParent.version.unlinked == False and dnode.parent == nParent:
-                        with dnode.lock:
-                            dnode = self.__rebalanceNode(nParent, dnode)
+                    if nParent.version.unlinked == False and node.parent == nParent:
+                        with node.lock:
+                            node = self.__rebalanceNode(nParent, node)
 
-    def __fixHeight(self, dnode):
+    def __fixHeight(self, node):
         """
         Attempts to fix the height of a node. Returns the lowest damaged node that the current thread is responsible for or null if no damaged nodes are found.
         """
 
-        c = self.__nodeCondition(dnode)
+        c = self.__nodeCondition(node)
         if c == REBALANCE:
             # Need to rebalance
             pass
         elif c == UNLINK:
             # Need to unlink
-            return dnode
+            return node
         elif c == NOTHING:
             # This thread doesn't need to do anything
             return None
         else:
             # Fix height, return parent which will need fixing next
-            dnode.height = c
-            return dnode.parent
+            node.height = c
+            return node.parent
 
-    def __nodeCondition(self, dnode):
+    def __nodeCondition(self, node):
         """
         Returns whether a node needs to be fixed (the correct height) or other status codes.
         """
 
-        nL = dnode.left
-        nR = dnode.right
+        nL = node.left
+        nR = node.right
 
-        if (nL is None or nR is None) and dnode.val is None:
+        if (nL is None or nR is None) and node.val is None:
             # Need to unlink
             return UNLINK
 
-        hN = dnode.height
+        hN = node.height
         hL0 = 0 if nL is None else nL.height
         hR0 = 0 if nR is None else nR.height
 
@@ -359,90 +367,90 @@ class ConAVL(object):
         # No action needed
         return hNRepl if hN != hNRepl else NOTHING
 
-    def __rebalanceNode(self, nParent, dnode):
-        nL = dnode.left #TODO: See some of the unshared stuff from snaoshot and see if it's necessary
-        nR = dnode.right
-        if (nL is None or nR is None) and dnode.val is None:
-            if self.__attemptUnlink(nParent, dnode):
+    def __rebalanceNode(self, nParent, node):
+        nL = node.left #TODO: See some of the unshared stuff from snaoshot and see if it's necessary
+        nR = node.right
+        if (nL is None or nR is None) and node.val is None:
+            if self.__attemptUnlink(nParent, node):
                 # fix parent height
                 return self.__fixHeight(nParent)
-            return dnode
-        hN = dnode.height
+            return node
+        hN = node.height
         hL0 = 0 if nL is None else nL.height
         hR0 = 0 if nR is None else nR.height
 
         hNRepl = max(hL0, hR0) +1
         if hL0 - hR0 < -1:
-            return self.__rebalanceLeft(nParent, dnode, nR, hL0)
+            return self.__rebalanceLeft(nParent, node, nR, hL0)
         elif hL0 - hR0 > 1:
-            return self.__rebalanceRight(nParent, dnode, nL, hR0)
+            return self.__rebalanceRight(nParent, node, nL, hR0)
         elif hN == hNRepl:
             return None
         else:
             # fix height and fix the parent
-            dnode.height = hNRepl
+            node.height = hNRepl
             return self.__fixHeight(nParent)
 
-    def __rebalanceLeft(self, nParent, dnode, nR, hL0):
+    def __rebalanceLeft(self, nParent, node, nR, hL0):
         with nR.lock:
             hR = nR.height
             if hL0 - hR >= -1:
                 # retry
-                return dnode
+                return node
             else:
                 nRL = nR.left #todo: see unshared again
                 hRL0 = 0 if nRL is None else nRL.height
                 hRR0 = 0 if nR.right is None else nR.right.height
                 if hRR0 >= hRL0:
-                    return self.__rotateLeft(nParent, dnode, hL0, nR, nRL, hRL0, hRR0)
+                    return self.__rotateLeft(nParent, node, hL0, nR, nRL, hRL0, hRR0)
                 else:
                     with nRL.lock:
                         hRL = nRL.height
                         if hRR0 >= hRL:
-                            return self.__rotateLeft(nParent, dnode, hL0, nR, nRL, hRL, hRR0)
+                            return self.__rotateLeft(nParent, node, hL0, nR, nRL, hRL, hRR0)
                         else:
                             hRLR = 0 if nRL.right is None else nRL.right.height
                             if (hRR0 - hRLR >= -1 and  hRR0 - hRLR <= 1)and not ((hRR0 == 0 or hRLR == 0) and nR.val is None):
-                                return self.__rotateLeftOverRight(nParent, dnode, hL0, nR, nRL, hRR0, hRLR)
-                    return self.__rebalanceRight(dnode, nR, nRL, hRR0)
+                                return self.__rotateLeftOverRight(nParent, node, hL0, nR, nRL, hRR0, hRLR)
+                    return self.__rebalanceRight(node, nR, nRL, hRR0)
 
-    def __rebalanceRight(self, nParent, dnode, nL, hR0):
+    def __rebalanceRight(self, nParent, node, nL, hR0):
         with nL.lock:
             hL = nL.height
             if hL - hR0 <= 1:
                 #retry
-                return dnode
+                return node
             else:
                 nLR = nL.right  # todo: see unshared again
                 hLR0 = 0 if nLR is None else nLR.height
                 hLL0 = 0 if nL.left is None else nL.left.height
                 if hLL0 >= hLR0:
-                    return self.__rotateRight(nParent, dnode, hR0, nL,  nLR, hLR0, hLL0)
+                    return self.__rotateRight(nParent, node, hR0, nL,  nLR, hLR0, hLL0)
                 else:
                     with nLR.lock:
                         hLR = nLR.height
                         if hLL0 >= hLR:
-                            return self.__rotateRight(nParent, dnode, hR0, nL, nLR, hLR, hLL0)
+                            return self.__rotateRight(nParent, node, hR0, nL, nLR, hLR, hLL0)
                         else:
                             hLRL = 0 if nLR.left is None else nLR.left.height
                             if (hLL0 - hLRL >= -1 and hLL0 - hLRL <= 1) and not ((hLL0 == 0 or hLRL == 0) and nL.val is None):
-                                return self.__rotateRightOverLeft(nParent, dnode, hR0, nL, nLR, hLL0, hLRL)
-                    return self.__rebalanceLeft(dnode, nL, nLR, hLL0)
+                                return self.__rotateRightOverLeft(nParent, node, hR0, nL, nLR, hLL0, hLRL)
+                    return self.__rebalanceLeft(node, nL, nLR, hLL0)
 
-    def __rotateLeftOverRight(self, nParent, dnode, hL, nR, nRL, hRR, hRLR):
+    def __rotateLeftOverRight(self, nParent, node, hL, nR, nRL, hRR, hRLR):
 
         nPL = nParent.left
         nRLL = nRL.left
         nRLR = nRL.right
         hRLL = 0 if nRLL is None else nRLL.height
 
-        dnode.version.shrinking = True
+        node.version.shrinking = True
         nR.version.shrinking = True
 
         # Fix all the pointers
-        dnode.right = nRLL
+        node.right = nRLL
         if nRLL is not None:
-            nRLL.parent = dnode
+            nRLL.parent = node
 
         nR.left = nRLR
         if nRLR is not None:
@@ -450,10 +458,10 @@ class ConAVL(object):
 
         nRL.right = nR
         nR.parent = nRL
-        nRL.left = dnode
-        dnode.parent = nRL
+        nRL.left = node
+        node.parent = nRL
 
-        if nPL != dnode:
+        if nPL != node:
             nParent.right = nRL
         else:
             nParent.left = nRL
@@ -461,38 +469,38 @@ class ConAVL(object):
 
         # Fix all the heights
         hNRepl = max(hRLL, hL) +1
-        dnode.height = hNRepl
+        node.height = hNRepl
         hRRepl = max(hRR, hRLR) +1
         nR.height = hRRepl
         nRL.height = max(hNRepl, hRRepl) + 1
 
-        dnode.version.shrinking = False
+        node.version.shrinking = False
         nR.version.shrinking = False
 
         assert abs(hRR-hRLR) <= 1
 
-        if (hRLL - hL < -1 or hRLL - hL > 1) or ((nRLL is None or hL == 0) and dnode.val is None):
-            return dnode
+        if (hRLL - hL < -1 or hRLL - hL > 1) or ((nRLL is None or hL == 0) and node.val is None):
+            return node
 
         if (hRRepl - hNRepl < -1 or hRRepl - hNRepl > 1) :
             return nRL
         return self.__fixHeight(nParent)
 
-    def __rotateRightOverLeft(self, nParent, dnode, hR, nL, nLR, hLL, hLRL):
+    def __rotateRightOverLeft(self, nParent, node, hR, nL, nLR, hLL, hLRL):
 
         nPL = nParent.left
         nLRL = nLR.left
         nLRR = nLR.right
         hLRR = 0 if nLRR is None else nLRR.height
 
-        dnode.version.shrinking = True
+        node.version.shrinking = True
         nL.version.shrinking = True
 
         # Fix all the pointers
 
-        dnode.left = nLRR
+        node.left = nLRR
         if nLRR is not None:
-            nLRR.parent = dnode
+            nLRR.parent = node
 
         nL.right = nLRL
         if nLRL is not None:
@@ -500,10 +508,10 @@ class ConAVL(object):
 
         nLR.left = nL
         nL.parent = nLR
-        nLR.right = dnode
-        dnode.parent = nLR
+        nLR.right = node
+        node.parent = nLR
 
-        if nPL != dnode:
+        if nPL != node:
             nParent.right = nLR
         else:
             nParent.left = nLR
@@ -511,38 +519,38 @@ class ConAVL(object):
 
         # Fix all the heights
         hNRepl = max(hLRR, hR) + 1
-        dnode.height = hNRepl
+        node.height = hNRepl
         hLRepl = max(hLL, hLRL) + 1
         nL.height = hLRepl
         nLR.height = max(hNRepl, hLRepl) + 1
 
-        dnode.version.shrinking = False
+        node.version.shrinking = False
         nL.version.shrinking = False
 
         assert abs(hLL - hLRL) <= 1
         assert not ((hLL == 0 or nLRL is None) and nL.val is None)
 
-        if (hLRR - hR < -1 or hLRR - hR > 1) or ((nLRR is None or hR == 0) and dnode.val is None):
-            return dnode
+        if (hLRR - hR < -1 or hLRR - hR > 1) or ((nLRR is None or hR == 0) and node.val is None):
+            return node
 
         if (hLRepl - hNRepl < -1 or hLRepl - hNRepl > 1) :
             return nLR
         return self.__fixHeight(nParent)
 
-    def __rotateLeft(self, nParent, dnode, hL, nR, nRL, hRL, hRR):
+    def __rotateLeft(self, nParent, node, hL, nR, nRL, hRL, hRR):
         nPL = nParent.left # sibling or itself
 
-        dnode.version.shrinking = True
+        node.version.shrinking = True
 
         # Fix all the pointers
-        dnode.right = nRL
+        node.right = nRL
         if nRL is not None:
-            nRL.parent = dnode
+            nRL.parent = node
 
-        nR.left = dnode
-        dnode.parent = nR
+        nR.left = node
+        node.parent = nR
 
-        if nPL is dnode:
+        if nPL is node:
             nParent.left = nR
         else:
             nParent.right = nR
@@ -550,33 +558,33 @@ class ConAVL(object):
 
         # Fix the heights
         hNRepl = max(hL, hRL) + 1
-        dnode.height = hNRepl
+        node.height = hNRepl
         nR.height = max(hRR, hNRepl) + 1
 
-        dnode.version.shrinking = False
+        node.version.shrinking = False
 
-        if (hRL - hL < -1 or hRL - hL > 1) or ((nRL is None or hL == 0) and dnode.val is None): #TODO: Why do we check for val is None?
-            return dnode
+        if (hRL - hL < -1 or hRL - hL > 1) or ((nRL is None or hL == 0) and node.val is None): #TODO: Why do we check for val is None?
+            return node
 
         if (hRR - hNRepl< -1 or hRR - hNRepl > 1) or (hRR == 0 and nR.val is None):
             return nR
 
         return self.__fixHeight(nParent)
 
-    def __rotateRight(self, nParent, dnode, hR, nL, nLR, hLR, hLL):
+    def __rotateRight(self, nParent, node, hR, nL, nLR, hLR, hLL):
         nPL = nParent.left  # sibling or itself
 
-        dnode.version.shrinking = True
+        node.version.shrinking = True
 
         # Fix all the pointers
-        dnode.left = nLR
+        node.left = nLR
         if nLR is not None:
-            nLR.parent = dnode
+            nLR.parent = node
 
-        nL.right = dnode
-        dnode.parent = nL
+        nL.right = node
+        node.parent = nL
 
-        if nPL is dnode:
+        if nPL is node:
             nParent.left = nL
         else:
             nParent.right = nL
@@ -584,14 +592,14 @@ class ConAVL(object):
 
         # Fix the heights
         hNRepl = max(hR, hLR) + 1
-        dnode.height = hNRepl
+        node.height = hNRepl
         nL.height = max(hLL, hNRepl) + 1
 
-        dnode.version.shrinking = False
+        node.version.shrinking = False
 
         if (hLR - hR < -1 or hLR - hR > 1) or (
-                (nLR is None or hR == 0) and dnode.val is None):  # TODO: Why do we check for val is None?
-            return dnode
+                (nLR is None or hR == 0) and node.val is None):  # TODO: Why do we check for val is None?
+            return node
 
         if (hLL - hNRepl < -1 or hLL - hNRepl > 1) or (hLL == 0 and nL.val is None):
             return nL
@@ -647,7 +655,7 @@ class Node(object):
         
     def getChild(self, branch):
         """
-        concurrent helper function, use branch=dkey-dnode.key
+        concurrent helper function, use branch=dkey-node.key
         branch<0: return left child, branch>0: return right child
         branch==0: return None
         """
@@ -663,21 +671,25 @@ def strTree(droot):
     perform a pretty print, stringified
     """
     stree = ""
-    dnode = droot
+    node = droot
 
-    def DFSNode(ddnode, dstree):
-        if ddnode is None:
+    def DFSNode(dnode, dstree):
+        if dnode is None:
             dstree += "·"
             return dstree
         else:
-            dstree += ddnode.val
-        if ddnode.height > 1:
+            dstree += dnode.val
+        if dnode.height > 1:
             dstree += "("
-            dstree = DFSNode(ddnode.left, dstree)
+            dstree = DFSNode(dnode.left, dstree)
             dstree += ","
-            dstree = DFSNode(ddnode.right, dstree)
+            dstree = DFSNode(dnode.right, dstree)
             dstree += ")"
         return dstree
 
-    stree = DFSNode(dnode, stree)
+    stree = DFSNode(node, stree)
     return stree
+
+def fakeConflict():
+    for i in range(random.randint(0,1000000)):
+        pass
