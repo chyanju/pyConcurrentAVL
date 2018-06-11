@@ -40,12 +40,6 @@ class ConAVL(object):
     def put(self, dkey, dval = None):
         self.__putNode(dkey, str(dkey) if dval is None else dval, self.root)
 
-    def min(self):
-        return self.__getMinNode(self.root)
-
-    def max(self):
-        return self.__getMaxNode(self.root)
-
     def remove(self, dkey):
         self.__putNode(dkey, None, self.root)
 
@@ -114,11 +108,6 @@ class ConAVL(object):
                     # RETRY
                     continue
 
-    # equal to "updateUnderRoot"
-    # original -> renamed
-    # k -> /: k is a comparable version of key
-    ## right -> cnode: child node
-    ## ovl -> cversion: child version
     def __putNode(self, key, newValue, holder):
         """
         TO-UPDATE
@@ -309,33 +298,6 @@ class ConAVL(object):
 
         assert dnode.version != dversion
         return
-
-    def __getMinNode(self, droot):
-        """
-        return the node with minimum key, including droot
-        """
-        m = droot
-        dnode = droot
-
-        if droot is not None:
-            while dnode.left is not None:
-                dnode = dnode.left
-                if dnode.key < m.key:
-                    m = dnode
-        return m
-
-    def __getMaxNode(self, droot):
-        """
-        return the node with maximum key, including droot
-        """
-        m = droot
-        dnode = droot
-        if droot is not None:
-            while dnode.right is not None:
-                dnode = dnode.right
-                if dnode.key > m.key:
-                    m = dnode
-        return m
 
     def __fixHeightAndRebalance(self, dnode):
         """
